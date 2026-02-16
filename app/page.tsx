@@ -1,7 +1,8 @@
 import Image from "next/image";
-
+import Appbar from "./components/appbar"
 export default function Home() {
   return <div>
-    hi there
+     Hi,This is front page
+    <div><Appbar></Appbar></div>
   </div>
 }
