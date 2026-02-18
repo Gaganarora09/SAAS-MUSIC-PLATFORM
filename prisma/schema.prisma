@@ -15,6 +15,7 @@
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 generator client {
   provider = "prisma-client-js"
@@ -53,6 +54,8 @@ model Upvote {
 enum StreamType {
   Youtube
   Netflix
+  Spotify
+  Twitch
 }
 
 enum Provider {
