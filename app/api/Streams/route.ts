@@ -42,3 +42,18 @@ export async function POST(req:NextRequest){
         })
     }
 } 
+
+//To fetch all the streams
+
+export async function Get(req:NextRequest){
+    const creatorId =req.nextUrl.searchParams.get("creatorId");
+    const streams=await prismaClient.stream.findMany({
+        where:{
+            userId:creatorId??""
+        }
+    })
+
+    return NextResponse.json({
+        streams
+    })
+}
