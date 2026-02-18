@@ -11,6 +11,9 @@ const CreateStreamSchema=z.object({
     url:z.string()
 })
 
+
+//user can create room.
+
 export async function POST(req:NextRequest){
     try{
         const data=CreateStreamSchema.parse(await req.json());
