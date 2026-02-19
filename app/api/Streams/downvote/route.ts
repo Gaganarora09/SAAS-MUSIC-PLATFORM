@@ -6,7 +6,7 @@ import {z} from "zod";
 const UpvoteSchema=z.object({
     streamId:z.string(),
 })
-
+//Downvote a song
 export async function Post(req:NextResponse){
     const session=await getServerSession();
     const user=await prismaClient.user.findFirst({
