@@ -93,5 +93,3 @@ export async function GET(req:NextRequest){
         streams
     })
 }
-
-// Getting top two biggest thumnails from url
