@@ -21,6 +21,7 @@ function getThumbUrl(videoId: string) {
   return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
 }
 
+
 interface QueueItem {
   id: string;
   videoId: string;
@@ -62,9 +63,12 @@ export default function Dashboard() {
       setUrlError("Doesn't look like a valid YouTube link");
     }
   }, [url]);
-
-  const handleAddToQueue = () => {
+  const [streamId,setstreamId]=useState("");
+  const handleAddToQueue = async () => {
+    
     if (!preview) return;
+    const fetchedId=await fetchurl();
+    setstreamId(fetchedId);
     const newItem: QueueItem = {
       id: Date.now().toString(),
       videoId: preview.id,
@@ -77,7 +81,38 @@ export default function Dashboard() {
     setPreview(null);
   };
 
-  const handleVote = (id: string, delta: 1 | -1) => {
+  //used to store youtube link info in database (paste a youtube link here)<->
+async function fetchurl(){
+  const response=await fetch("./api/Streams",{
+    method:"POST",
+    headers: { "Content-Type": "application/json" },
+    body:JSON.stringify({
+      creatorId:session?.user?.id,
+      url:url,
+    })
+  });
+  const data=await response.json();
+  return data.id;
+}
+
+
+async function upvote(streamId:string){
+  const response=await fetch("./api/Streams/upvote",{
+    method:"POST",
+     headers: { "Content-Type": "application/json" },
+    body:JSON.stringify({
+      streamId:streamId,
+    })
+  });
+  const data=await response.json();
+  return data.message;
+}
+  
+  const handleVote = async (id: string, delta: 1 | -1) => {
+    if(delta==1){
+
+      upvote(streamId);
+    }
     setQueue(prev =>
       prev
         .map(item => item.id === id ? { ...item, votes: item.votes + delta } : item)
@@ -89,6 +124,7 @@ export default function Dashboard() {
     setNowPlaying(item);
     setQueue(prev => prev.filter(q => q.id !== item.id));
   };
+  
 
   if (status === "loading") {
     return (
@@ -439,7 +475,10 @@ export default function Dashboard() {
                 >
                   + Add
                 </button>
+
+                
               </div>
+               
 
               {urlError && <p className="rm-url-error">⚠ {urlError}</p>}
 
