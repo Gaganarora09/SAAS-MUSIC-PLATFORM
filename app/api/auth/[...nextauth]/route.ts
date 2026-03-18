@@ -1,9 +1,9 @@
-import NextAuth from "next-auth"
+import NextAuth, { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
-import {prismaClient} from "@/app/lib/db";
+import { prismaClient } from "@/app/lib/db";
 
-const handler = NextAuth({
+export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
@@ -27,8 +27,6 @@ const handler = NextAuth({
       } catch(e) {}
       return true;
     },
-
-    // ✅ add this
     async session({ session, token }) {
       if (session.user) {
         const dbUser = await prismaClient.user.findUnique({
@@ -41,6 +39,7 @@ const handler = NextAuth({
       return session;
     }
   }
-});
+};
 
+const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST }

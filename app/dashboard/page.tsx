@@ -28,6 +28,7 @@ interface QueueItem {
   title: string;
   votes: number;
   addedBy: string;
+  streamId:string;
 }
 
 // ── component ─────────────────────────────────────────────
@@ -40,9 +41,9 @@ export default function Dashboard() {
   const [urlError, setUrlError] = useState("");
 
   const [queue, setQueue] = useState<QueueItem[]>([
-    { id: "1", videoId: "jfKfPfyJRdk", title: "lofi hip hop radio 📚", votes: 12, addedBy: "Gagan" },
-    { id: "2", videoId: "5qap5aO4i9A", title: "lofi hip hop radio - beats to sleep", votes: 7, addedBy: "Rahul" },
-    { id: "3", videoId: "rUxyKA_-grg", title: "Chillhop Radio 🎶", votes: 4, addedBy: "Priya" },
+    // { id: "1", videoId: "jfKfPfyJRdk", title: "lofi hip hop radio 📚", votes: 12, addedBy: "Gagan", streamId:"idk1"},
+    // { id: "2", videoId: "5qap5aO4i9A", title: "lofi hip hop radio - beats to sleep", votes: 7, addedBy: "Rahul",streamId:"idk2" },
+    // { id: "3", videoId: "rUxyKA_-grg", title: "Chillhop Radio 🎶", votes: 4, addedBy: "Priya",streamId:"idk3" },
   ]);
 
   const [nowPlaying, setNowPlaying] = useState<QueueItem | null>(null);
@@ -63,18 +64,17 @@ export default function Dashboard() {
       setUrlError("Doesn't look like a valid YouTube link");
     }
   }, [url]);
-  const [streamId,setstreamId]=useState("");
   const handleAddToQueue = async () => {
     
     if (!preview) return;
     const fetchedId=await fetchurl();
-    setstreamId(fetchedId);
     const newItem: QueueItem = {
       id: Date.now().toString(),
       videoId: preview.id,
       title: preview.title,
       votes: 0,
       addedBy: session?.user?.name?.split(" ")[0] ?? "You",
+      streamId:fetchedId,
     };
     setQueue(prev => [...prev, newItem].sort((a, b) => b.votes - a.votes));
     setUrl("");
@@ -108,10 +108,18 @@ async function upvote(streamId:string){
   return data.message;
 }
   
+  const [votedItems, setVotedItems] = useState<Set<string>>(new Set());
+  
   const handleVote = async (id: string, delta: 1 | -1) => {
+
     if(delta==1){
 
-      upvote(streamId);
+        if (votedItems.has(id)) return;
+         setVotedItems(prev => new Set(prev).add(id));
+
+
+      const item = queue.find(q => q.id === id);
+      upvote(item?.streamId ?? "");
     }
     setQueue(prev =>
       prev
@@ -540,10 +548,10 @@ async function upvote(streamId:string){
                       <span className={`rm-vote-num ${item.votes > 0 ? "pos" : item.votes < 0 ? "neg" : "zero"}`}>
                         {item.votes > 0 ? `+${item.votes}` : item.votes}
                       </span>
-                      <button
+                      {/* <button
                         className="rm-vote-btn down"
                         onClick={() => handleVote(item.id, -1)}
-                      >▼</button>
+                      >▼</button> */}
                     </div>
                   </div>
                 ))
