@@ -2,7 +2,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 // ── helpers ──────────────────────────────────────────────
 function extractYouTubeId(url: string): string | null {
@@ -21,14 +21,13 @@ function getThumbUrl(videoId: string) {
   return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
 }
 
-
 interface QueueItem {
   id: string;
   videoId: string;
   title: string;
   votes: number;
   addedBy: string;
-  streamId:string;
+  streamId: string;
 }
 
 // ── component ─────────────────────────────────────────────
@@ -39,20 +38,74 @@ export default function Dashboard() {
   const [url, setUrl] = useState("");
   const [preview, setPreview] = useState<{ id: string; title: string } | null>(null);
   const [urlError, setUrlError] = useState("");
-
-  const [queue, setQueue] = useState<QueueItem[]>([
-    // { id: "1", videoId: "jfKfPfyJRdk", title: "lofi hip hop radio 📚", votes: 12, addedBy: "Gagan", streamId:"idk1"},
-    // { id: "2", videoId: "5qap5aO4i9A", title: "lofi hip hop radio - beats to sleep", votes: 7, addedBy: "Rahul",streamId:"idk2" },
-    // { id: "3", videoId: "rUxyKA_-grg", title: "Chillhop Radio 🎶", votes: 4, addedBy: "Priya",streamId:"idk3" },
-  ]);
-
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [nowPlaying, setNowPlaying] = useState<QueueItem | null>(null);
+  const [votedItems, setVotedItems] = useState<Set<string>>(new Set());
 
+  // ── NEW: YouTube IFrame API state ──
+  const [ytReady, setYtReady] = useState(false); // true when YT API script has loaded
+  const playerRef = useRef<any>(null);            // holds the YT.Player instance
+  // We use a ref for queue so the onStateChange callback always has fresh data
+  const queueRef = useRef<QueueItem[]>([]);
+
+  // Keep queueRef in sync with queue state
+  useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
+
+  // ── Load YouTube IFrame API script once on mount ──
+  // The API calls window.onYouTubeIframeAPIReady when it's done loading
+  useEffect(() => {
+    if ((window as any).YT) {
+      // Already loaded (e.g. hot reload)
+      setYtReady(true);
+      return;
+    }
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.body.appendChild(tag);
+
+    // YouTube calls this global function automatically when ready
+    (window as any).onYouTubeIframeAPIReady = () => {
+      setYtReady(true);
+    };
+  }, []);
+
+  // ── Create/replace YT player whenever nowPlaying changes ──
+  useEffect(() => {
+    if (!nowPlaying || !ytReady) return;
+
+    // Destroy the previous player instance to avoid memory leaks
+    if (playerRef.current) {
+      try { playerRef.current.destroy(); } catch {}
+    }
+
+    // Create a new YT.Player attached to the div with id="yt-player"
+    playerRef.current = new (window as any).YT.Player("yt-player", {
+      videoId: nowPlaying.videoId,
+      playerVars: {
+        autoplay: 1,       // start playing immediately
+        rel: 0,            // don't show related videos at end
+        modestbranding: 1, // minimal YouTube branding
+      },
+      events: {
+        onStateChange: (event: any) => {
+          // YT.PlayerState.ENDED = 0
+          // When the video finishes, automatically play the next top-voted song
+          if (event.data === 0) {
+            playNextFromRef(); // uses ref so we always get fresh queue
+          }
+        },
+      },
+    });
+  }, [nowPlaying, ytReady]);
+
+  // ── Auth redirect ──
   useEffect(() => {
     if (status === "unauthenticated") router.push("/");
   }, [status, router]);
 
-  // ── preview url as user types ──
+  // ── Preview YouTube link as user types ──
   useEffect(() => {
     setUrlError("");
     if (!url.trim()) { setPreview(null); return; }
@@ -64,60 +117,75 @@ export default function Dashboard() {
       setUrlError("Doesn't look like a valid YouTube link");
     }
   }, [url]);
+
+  // ── Play next top-voted song (uses ref for fresh queue data) ──
+  // We need this version because it's called inside the YT onStateChange callback
+  // where the queue state would be stale (closure problem)
+  const playNextFromRef = () => {
+    const current = queueRef.current;
+    if (current.length === 0) return;
+    const sorted = [...current].sort((a, b) => b.votes - a.votes);
+    const next = sorted[0];
+    setNowPlaying(next);
+    setQueue(prev => prev.filter(q => q.id !== next.id));
+  };
+
+  // ── Play next top-voted song (normal version for button click) ──
+  const playNext = () => {
+    if (queue.length === 0) return;
+    const sorted = [...queue].sort((a, b) => b.votes - a.votes);
+    const next = sorted[0];
+    setNowPlaying(next);
+    setQueue(prev => prev.filter(q => q.id !== next.id));
+  };
+
+  // ── Add song to queue ──
   const handleAddToQueue = async () => {
-    
     if (!preview) return;
-    const fetchedId=await fetchurl();
+    const fetchedId = await fetchurl();
     const newItem: QueueItem = {
       id: Date.now().toString(),
       videoId: preview.id,
       title: preview.title,
       votes: 0,
       addedBy: session?.user?.name?.split(" ")[0] ?? "You",
-      streamId:fetchedId,
+      streamId: fetchedId,
     };
     setQueue(prev => [...prev, newItem].sort((a, b) => b.votes - a.votes));
     setUrl("");
     setPreview(null);
   };
 
-  //used to store youtube link info in database (paste a youtube link here)<->
-async function fetchurl(){
-  const response=await fetch("./api/Streams",{
-    method:"POST",
-    headers: { "Content-Type": "application/json" },
-    body:JSON.stringify({
-      creatorId:session?.user?.id,
-      url:url,
-    })
-  });
-  const data=await response.json();
-  return data.id;
-}
+  // ── Save YouTube link to database ──
+  async function fetchurl() {
+    const response = await fetch("./api/Streams", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        creatorId: session?.user?.id,
+        url: url,
+      }),
+    });
+    const data = await response.json();
+    return data.id;
+  }
 
+  // ── Upvote in database ──
+  async function upvote(streamId: string) {
+    const response = await fetch("./api/Streams/upvote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ streamId }),
+    });
+    const data = await response.json();
+    return data.message;
+  }
 
-async function upvote(streamId:string){
-  const response=await fetch("./api/Streams/upvote",{
-    method:"POST",
-     headers: { "Content-Type": "application/json" },
-    body:JSON.stringify({
-      streamId:streamId,
-    })
-  });
-  const data=await response.json();
-  return data.message;
-}
-  
-  const [votedItems, setVotedItems] = useState<Set<string>>(new Set());
-  
+  // ── Handle vote (upvote only, one per item) ──
   const handleVote = async (id: string, delta: 1 | -1) => {
-
-    if(delta==1){
-
-        if (votedItems.has(id)) return;
-         setVotedItems(prev => new Set(prev).add(id));
-
-
+    if (delta === 1) {
+      if (votedItems.has(id)) return; // already voted
+      setVotedItems(prev => new Set(prev).add(id));
       const item = queue.find(q => q.id === id);
       upvote(item?.streamId ?? "");
     }
@@ -128,16 +196,16 @@ async function upvote(streamId:string){
     );
   };
 
+  // ── Manually click play on a queue item ──
   const handlePlay = (item: QueueItem) => {
     setNowPlaying(item);
     setQueue(prev => prev.filter(q => q.id !== item.id));
   };
-  
 
   if (status === "loading") {
     return (
-      <div style={{ minHeight:"100vh", background:"#080a0f", display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <div style={{ width:40, height:40, border:"2px solid #ff3c5f", borderTopColor:"transparent", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
+      <div style={{ minHeight: "100vh", background: "#080a0f", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 40, height: 40, border: "2px solid #ff3c5f", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     );
@@ -237,11 +305,23 @@ async function upvote(streamId:string){
         }
         .rm-player-title{font-size:0.9rem;font-weight:500;color:var(--text)}
 
+        /* NEW: Play Next button in header */
+        .rm-play-next-btn {
+          font-family:'Space Mono',monospace; font-size:0.6rem;
+          letter-spacing:0.08em; text-transform:uppercase;
+          background:none; border:1px solid var(--border);
+          color:var(--muted); padding:5px 10px; border-radius:4px;
+          cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:5px;
+        }
+        .rm-play-next-btn:hover:not(:disabled){border-color:var(--green);color:var(--green)}
+        .rm-play-next-btn:disabled{opacity:0.3;cursor:not-allowed}
+
         .rm-embed-wrap {
           position:relative; width:100%; padding-bottom:56.25%;
           background:#000;
         }
-        .rm-embed-wrap iframe {
+        /* The YT player div fills the embed wrapper */
+        .rm-embed-wrap #yt-player {
           position:absolute; inset:0; width:100%; height:100%; border:none;
         }
         .rm-embed-placeholder {
@@ -443,18 +523,34 @@ async function upvote(streamId:string){
                 <span className="rm-player-label">
                   <span className="rm-live-dot" /> Now Playing
                 </span>
-                {nowPlaying && (
-                  <span className="rm-player-title">{nowPlaying.title}</span>
-                )}
+
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  {/* Show current song title */}
+                  {nowPlaying && (
+                    <span className="rm-player-title">{nowPlaying.title}</span>
+                  )}
+
+                  {/* ── PLAY NEXT BUTTON ──
+                      Disabled when queue is empty.
+                      Clicking it manually triggers playNext() */}
+                  <button
+                    className="rm-play-next-btn"
+                    onClick={playNext}
+                    disabled={queue.length === 0}
+                    title={queue.length === 0 ? "Queue is empty" : "Play top voted song"}
+                  >
+                    ⏭ Play Next
+                  </button>
+                </div>
               </div>
+
               <div className="rm-embed-wrap">
                 {nowPlaying ? (
-                  <iframe
-                    src={`https://www.youtube.com/embed/${nowPlaying.videoId}?autoplay=1`}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    title={nowPlaying.title}
-                  />
+                  // ── IMPORTANT: This div is where YouTube API attaches the player ──
+                  // We use a div instead of <iframe> so the YT IFrame API can control it
+                  // The useEffect above creates new YT.Player("yt-player", ...) 
+                  // which replaces this div with a real iframe internally
+                  <div id="yt-player" />
                 ) : (
                   <div className="rm-embed-placeholder">
                     <span className="rm-embed-placeholder-icon">🎵</span>
@@ -483,10 +579,7 @@ async function upvote(streamId:string){
                 >
                   + Add
                 </button>
-
-                
               </div>
-               
 
               {urlError && <p className="rm-url-error">⚠ {urlError}</p>}
 
@@ -548,10 +641,6 @@ async function upvote(streamId:string){
                       <span className={`rm-vote-num ${item.votes > 0 ? "pos" : item.votes < 0 ? "neg" : "zero"}`}>
                         {item.votes > 0 ? `+${item.votes}` : item.votes}
                       </span>
-                      {/* <button
-                        className="rm-vote-btn down"
-                        onClick={() => handleVote(item.id, -1)}
-                      >▼</button> */}
                     </div>
                   </div>
                 ))
