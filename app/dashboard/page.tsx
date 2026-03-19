@@ -57,7 +57,7 @@ export default function Dashboard() {
   // The API calls window.onYouTubeIframeAPIReady when it's done loading
   useEffect(() => {
     if ((window as any).YT) {
-      // Already loaded (e.g. hot reload)
+      // Already loaded 
       setYtReady(true);
       return;
     }
@@ -86,7 +86,7 @@ export default function Dashboard() {
       playerVars: {
         autoplay: 1,       // start playing immediately
         rel: 0,            // don't show related videos at end
-        modestbranding: 1, // minimal YouTube branding
+        modestbranding: 1, // minimal YouTube branding hehehe lol
       },
       events: {
         onStateChange: (event: any) => {
