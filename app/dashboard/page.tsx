@@ -104,6 +104,38 @@ export default function Dashboard() {
   useEffect(() => {
     if (status === "unauthenticated") router.push("/");
   }, [status, router]);
+  
+//fetch streams from db after every 3 seconda
+useEffect(() => {
+  if (!session) return;
+
+  const fetchStreams = async () => {
+    const res = await fetch(`/api/Streams?creatorId=${(session?.user as any)?.id}`);
+    const data = await res.json();
+    if (data.streams) {
+      const sorted = data.streams
+        .filter((s: any) => s.active === true) // only queued songs
+        .map((s: any) => ({
+          id: s.id,
+          videoId: s.extractedId,
+          title: s.title || "YouTube Video",
+          votes: s.upvotes?.length ?? 0,
+          addedBy: "Someone",
+          streamId: s.id,
+        }))
+        .sort((a: any, b: any) => b.votes - a.votes);
+      setQueue(sorted);
+    }
+  };
+
+  fetchStreams();
+  const interval = setInterval(fetchStreams, 3000);
+  return () => clearInterval(interval);
+}, [session]);
+
+
+
+
 
   // ── Preview YouTube link as user types ──
   useEffect(() => {
@@ -128,6 +160,17 @@ export default function Dashboard() {
     const next = sorted[0];
     setNowPlaying(next);
     setQueue(prev => prev.filter(q => q.id !== next.id));
+
+
+    // ← ADD THIS
+  fetch("/api/Streams/current", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      streamId: next.streamId,
+      creatorId: (session?.user as any)?.id,
+    }),
+  });
   };
 
   // ── Play next top-voted song (normal version for button click) ──
@@ -137,6 +180,16 @@ export default function Dashboard() {
     const next = sorted[0];
     setNowPlaying(next);
     setQueue(prev => prev.filter(q => q.id !== next.id));
+
+      // ← ADD THIS
+  fetch("/api/Streams/current", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      streamId: next.streamId,
+      creatorId: (session?.user as any)?.id,
+    }),
+  });
   };
 
   // ── Add song to queue ──
@@ -197,10 +250,20 @@ export default function Dashboard() {
   };
 
   // ── Manually click play on a queue item ──
-  const handlePlay = (item: QueueItem) => {
-    setNowPlaying(item);
-    setQueue(prev => prev.filter(q => q.id !== item.id));
-  };
+ const handlePlay = (item: QueueItem) => {
+  setNowPlaying(item);
+  setQueue(prev => prev.filter(q => q.id !== item.id));
+  
+  // ← save to DB so other browsers know what's playing
+  fetch("/api/Streams/current", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      streamId: item.streamId,
+      creatorId: (session?.user as any)?.id
+    })
+  });
+};
 
   if (status === "loading") {
     return (
@@ -596,9 +659,38 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+        </div>
+
+            {/* ── Share Room Box ── */}
+            <div style={{
+              background:"var(--surface)", border:"1px solid var(--border)",
+              borderRadius:"16px", padding:"20px 24px",
+              display:"flex", alignItems:"center", justifyContent:"space-between", gap:"12px"
+            }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"0.62rem", letterSpacing:"0.2em", textTransform:"uppercase" as const, color:"var(--muted)", marginBottom:"6px", display:"block" }}>
+                  🔗 Share your room
+                </span>
+                <div style={{ fontSize:"0.78rem", color:"var(--muted)", fontFamily:"'Space Mono',monospace", whiteSpace:"nowrap" as const, overflow:"hidden", textOverflow:"ellipsis" }}>
+                  {typeof window !== "undefined"
+                    ? `${window.location.origin}/stream/${(session?.user as any)?.id}`
+                    : "loading..."}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/stream/${(session?.user as any)?.id}`);
+                  alert("Link Copied!");
+                }}
+                style={{ fontFamily:"'Space Mono',monospace", fontSize:"0.62rem", letterSpacing:"0.1em", textTransform:"uppercase" as const, background:"none", border:"1px solid var(--border)", color:"var(--muted)", padding:"8px 14px", borderRadius:"6px", cursor:"pointer", whiteSpace:"nowrap" as const, flexShrink:0 }}
+              >
+                Copy Link
+              </button>
             </div>
 
           </div>
+
+          {/* RIGHT — Queue */}
 
           {/* RIGHT — Queue */}
           <div className="rm-queue-card">

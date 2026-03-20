@@ -32,8 +32,6 @@ interface QueueItem {
 export default function StreamPage() {
   const { data: session } = useSession();
   const params = useParams();
-
-  // ── ADDED LINE 36: Get creatorId from URL ──
   const creatorId = params.creatorId as string;
 
   const [url, setUrl] = useState("");
@@ -42,17 +40,73 @@ export default function StreamPage() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [nowPlaying, setNowPlaying] = useState<QueueItem | null>(null);
   const [votedItems, setVotedItems] = useState<Set<string>>(new Set());
+
+  // ── YouTube IFrame API state ──
   const [ytReady, setYtReady] = useState(false);
   const playerRef = useRef<any>(null);
   const queueRef = useRef<QueueItem[]>([]);
 
-  // ── ADDED LINE 49: Compare logged-in user's ID with the room creator's ID ──
-  // If they match → user is the creator → show play controls
-  // If they don't match → user is a viewer → only show vote buttons
+  // ── ADDED: isPaused state so we can show pause/play icon on overlay ──
+  const [isPaused, setIsPaused] = useState(false);
+
+  // nowPlayingRef prevents player from restarting every 3 seconds
+  const nowPlayingRef = useRef<QueueItem | null>(null);
+
+  // Check if logged-in user is the room creator
   const isCreator = (session?.user as any)?.id === creatorId;
 
+  // Keep refs in sync with state
   useEffect(() => { queueRef.current = queue; }, [queue]);
+  useEffect(() => { nowPlayingRef.current = nowPlaying; }, [nowPlaying]);
 
+  // ── Fetch streams + currently playing from DB every 3 seconds ──
+  useEffect(() => {
+    const fetchStreams = async () => {
+      const res = await fetch(`/api/Streams?creatorId=${creatorId}`);
+      const data = await res.json();
+
+      const currentRes = await fetch(`/api/Streams/current?creatorId=${creatorId}`);
+      const currentData = await currentRes.json();
+
+      if (currentData.stream) {
+        const incoming = {
+          id: currentData.stream.id,
+          videoId: currentData.stream.extractedId,
+          title: currentData.stream.title,
+          votes: 0,
+          addedBy: "Someone",
+          streamId: currentData.stream.id,
+        };
+
+        // Only update if song actually changed — prevents player restarting every 3s
+        if (nowPlayingRef.current?.id !== incoming.id) {
+          setNowPlaying(incoming);
+          setIsPaused(false); // reset pause state when new song starts
+        }
+      }
+
+      if (data.streams) {
+        const sorted = data.streams
+          .filter((s: any) => s.active === true)
+          .map((s: any) => ({
+            id: s.id,
+            videoId: s.extractedId,
+            title: s.title || "YouTube Video",
+            votes: s.upvotes?.length ?? 0,
+            addedBy: "Someone",
+            streamId: s.id,
+          }))
+          .sort((a: any, b: any) => b.votes - a.votes);
+        setQueue(sorted);
+      }
+    };
+
+    fetchStreams();
+    const interval = setInterval(fetchStreams, 3000);
+    return () => clearInterval(interval);
+  }, [creatorId]);
+
+  // ── Load YouTube IFrame API script ──
   useEffect(() => {
     if ((window as any).YT) { setYtReady(true); return; }
     const tag = document.createElement("script");
@@ -61,22 +115,25 @@ export default function StreamPage() {
     (window as any).onYouTubeIframeAPIReady = () => setYtReady(true);
   }, []);
 
-  // ── Only create player if user is creator ──
-  // Viewers should NOT control playback
+  // ── Create YouTube player ──
+  // controls:0 hides YouTube's built-in controls (no seek bar/skip)
+  // disablekb:1 disables keyboard shortcuts
+  // Viewer can only pause/play by clicking the overlay
   useEffect(() => {
-    // ADDED: isCreator check — only creator's browser controls the player
-    if (!nowPlaying || !ytReady || !isCreator) return;
+    if (!nowPlaying || !ytReady) return;
     if (playerRef.current) { try { playerRef.current.destroy(); } catch {} }
+
     playerRef.current = new (window as any).YT.Player("yt-player", {
       videoId: nowPlaying.videoId,
-      playerVars: { autoplay: 1, rel: 0, modestbranding: 1 },
-      events: {
-        onStateChange: (event: any) => {
-          if (event.data === 0) playNextFromRef();
-        },
+      playerVars: {
+        autoplay: 1,
+        rel: 0,
+        controls: 0,       // hides seek bar, skip buttons etc.
+        disablekb: 1,      // disables spacebar pause and arrow key seek
+        modestbranding: 1,
       },
     });
-  }, [nowPlaying, ytReady, isCreator]);
+  }, [nowPlaying, ytReady]);
 
   useEffect(() => {
     setUrlError("");
@@ -105,7 +162,7 @@ export default function StreamPage() {
 
   const handleAddToQueue = async () => {
     if (!preview) return;
-    if (!session) { signIn(); return; }
+    if (!session) { signIn(undefined, { callbackUrl: window.location.href }); return; }
     const fetchedId = await fetchurl();
     const newItem: QueueItem = {
       id: Date.now().toString(),
@@ -140,7 +197,7 @@ export default function StreamPage() {
   }
 
   const handleVote = async (id: string, delta: 1 | -1) => {
-    if (!session) { signIn(); return; }
+    if (!session) { signIn(undefined, { callbackUrl: window.location.href }); return; }
     if (delta === 1) {
       if (votedItems.has(id)) return;
       setVotedItems(prev => new Set(prev).add(id));
@@ -153,11 +210,26 @@ export default function StreamPage() {
     );
   };
 
-  // ── ADDED: Only creator can manually play a song ──
   const handlePlay = (item: QueueItem) => {
-    if (!isCreator) return; // viewers can't trigger this
+    if (!isCreator) return;
     setNowPlaying(item);
     setQueue(prev => prev.filter(q => q.id !== item.id));
+  };
+
+  // ── ADDED: Toggle pause/play for viewers ──
+  // Clicking anywhere on the video overlay pauses or resumes
+  const handleViewerClick = () => {
+    if (!playerRef.current) return;
+    const state = playerRef.current.getPlayerState();
+    if (state === 1) {
+      // 1 = currently playing → pause it
+      playerRef.current.pauseVideo();
+      setIsPaused(true);
+    } else {
+      // anything else (paused, ended etc.) → play it
+      playerRef.current.playVideo();
+      setIsPaused(false);
+    }
   };
 
   const sortedQueue = [...queue].sort((a, b) => b.votes - a.votes);
@@ -183,13 +255,8 @@ export default function StreamPage() {
         .rm-avatar img{width:100%;height:100%;object-fit:cover}
         .rm-signin-btn{font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;background:var(--accent);color:white;border:none;padding:7px 16px;border-radius:2px;cursor:pointer;transition:all 0.2s;}
         .rm-signin-btn:hover{background:#ff1f45}
-
-        /* ADDED: Viewer badge — shown to non-creators */
         .rm-viewer-badge{background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;padding:4px 10px;border-radius:99px;}
-
-        /* ADDED: Creator badge — shown to the room owner */
         .rm-creator-badge{background:rgba(255,60,95,0.1);border:1px solid rgba(255,60,95,0.3);color:var(--accent);font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;padding:4px 10px;border-radius:99px;}
-
         .rm-body{display:grid;grid-template-columns:1fr 380px;gap:24px;padding:32px 40px 80px;max-width:1280px;margin:0 auto;position:relative;z-index:1;}
         .rm-left{display:flex;flex-direction:column;gap:24px}
         .rm-player{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
@@ -205,6 +272,18 @@ export default function StreamPage() {
         .rm-embed-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--surface2);}
         .rm-embed-placeholder-icon{font-size:3rem;opacity:0.3}
         .rm-embed-placeholder-text{font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);}
+
+        /* ADDED: Pause icon that shows when viewer clicks to pause */
+        .rm-pause-icon {
+          position:absolute; inset:0; z-index:3;
+          display:flex; align-items:center; justify-content:center;
+          background:rgba(0,0,0,0.3);
+          font-size:3rem;
+          opacity:0; transition:opacity 0.2s;
+          pointer-events:none;
+        }
+        .rm-pause-icon.visible { opacity:1; }
+
         .rm-input-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;}
         .rm-input-label{font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:block;}
         .rm-input-row{display:flex;gap:10px;margin-bottom:0}
@@ -261,14 +340,11 @@ export default function StreamPage() {
         <nav className="rm-nav">
           <div className="rm-logo">Muzer <span className="rm-logo-dot" /></div>
           <div className="rm-nav-right">
-
-            {/* ADDED: Show Creator/Viewer badge in navbar so user knows their role */}
             {session && (
               <span className={isCreator ? "rm-creator-badge" : "rm-viewer-badge"}>
                 {isCreator ? "🎛 Host" : "👀 Viewer"}
               </span>
             )}
-
             {session ? (
               <div className="rm-avatar">
                 {session.user?.image
@@ -276,7 +352,7 @@ export default function StreamPage() {
                   : session.user?.name?.[0]?.toUpperCase() ?? "U"}
               </div>
             ) : (
-              <button className="rm-signin-btn" onClick={() => signIn()}>
+              <button className="rm-signin-btn" onClick={() => signIn(undefined, { callbackUrl: window.location.href })}>
                 Sign in to Vote
               </button>
             )}
@@ -285,7 +361,6 @@ export default function StreamPage() {
 
         <div className="rm-body">
           <div className="rm-left">
-
             <div className="rm-player">
               <div className="rm-player-header">
                 <span className="rm-player-label">
@@ -293,14 +368,8 @@ export default function StreamPage() {
                 </span>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   {nowPlaying && <span className="rm-player-title">{nowPlaying.title}</span>}
-
-                  {/* ADDED: Only creator sees Play Next button */}
                   {isCreator && (
-                    <button
-                      className="rm-play-next-btn"
-                      onClick={playNext}
-                      disabled={queue.length === 0}
-                    >
+                    <button className="rm-play-next-btn" onClick={playNext} disabled={queue.length === 0}>
                       ⏭ Play Next
                     </button>
                   )}
@@ -308,7 +377,41 @@ export default function StreamPage() {
               </div>
 
               <div className="rm-embed-wrap">
-                {nowPlaying ? <div id="yt-player" /> : (
+                {nowPlaying ? (
+                  <>
+                    {/* ── Viewer overlay ──
+                        For VIEWERS only (not creator).
+                        - Blocks YouTube's built-in seek bar and skip buttons
+                        - Clicking anywhere on the video toggles pause/play
+                        - Shows a pause/play icon when paused so user knows state
+                        Creator has NO overlay so they keep full YouTube controls */}
+                    {!isCreator && (
+                      <>
+                        {/* Pause/play icon — only visible when paused */}
+                        <div className={`rm-pause-icon ${isPaused ? "visible" : ""}`}>
+                          {isPaused ? "▶️" : ""}
+                        </div>
+
+                        {/* Transparent overlay — blocks clicks on YT controls
+                            but allows our onClick to toggle pause/play */}
+                        <div
+                          onClick={handleViewerClick}
+                          title={isPaused ? "Click to play" : "Click to pause"}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            zIndex: 2,
+                            background: "transparent",
+                            cursor: "pointer",
+                          }}
+                        />
+                      </>
+                    )}
+
+                    {/* YouTube player attaches here */}
+                    <div id="yt-player" />
+                  </>
+                ) : (
                   <div className="rm-embed-placeholder">
                     <span className="rm-embed-placeholder-icon">🎵</span>
                     <span className="rm-embed-placeholder-text">No song playing yet</span>
@@ -317,7 +420,6 @@ export default function StreamPage() {
               </div>
             </div>
 
-            {/* Anyone can suggest a song */}
             <div className="rm-input-card">
               <span className="rm-input-label">Suggest a song</span>
               <div className="rm-input-row">
@@ -344,7 +446,6 @@ export default function StreamPage() {
                 </div>
               )}
             </div>
-
           </div>
 
           <div className="rm-queue-card">
@@ -368,7 +469,6 @@ export default function StreamPage() {
                     <div className="rm-queue-meta">
                       <div className="rm-queue-name">{item.title}</div>
                       <div className="rm-queue-by">by {item.addedBy}</div>
-                      {/* ADDED: Only creator sees Play Now */}
                       {isCreator && (
                         <button className="rm-play-btn" onClick={() => handlePlay(item)}>
                           ▶ Play now
@@ -376,7 +476,6 @@ export default function StreamPage() {
                       )}
                     </div>
                     <div className="rm-vote-col">
-                      {/* Everyone can vote */}
                       <button className="rm-vote-btn up" onClick={() => handleVote(item.id, 1)}>▲</button>
                       <span className={`rm-vote-num ${item.votes > 0 ? "pos" : item.votes < 0 ? "neg" : "zero"}`}>
                         {item.votes > 0 ? `+${item.votes}` : item.votes}

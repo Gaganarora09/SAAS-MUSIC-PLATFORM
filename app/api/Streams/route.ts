@@ -27,7 +27,7 @@ export async function POST(req:NextRequest){
                 status:411
             })
         }
-        const extractedId=data.url.split("?v=")[1];
+        const extractedId = data.url.split("?v=")[1]?.split("&")[0];
         const res= await youtubesearchapi.GetVideoDetails(extractedId);
 
         // console.log(res.title);
@@ -76,18 +76,19 @@ export async function POST(req:NextRequest){
 
 export async function GET(req:NextRequest){
     const creatorId =req.nextUrl.searchParams.get("creatorId");
-    console.log("Searching for creatorId:", creatorId);
+    // console.log("Searching for creatorId:", creatorId);
     
     const streams=await prismaClient.stream.findMany({
         where:{
             userId:creatorId??""
-        }
+        },
+        include:{upvotes:true}
     })
     
     // Debug: Also fetch all streams to see what's in DB
-    const allStreams = await prismaClient.stream.findMany();
-    console.log("Total streams in DB:", allStreams.length);
-    console.log("Filtered streams:", streams.length);
+    // const allStreams = await prismaClient.stream.findMany();
+    // console.log("Total streams in DB:", allStreams.length);
+    // console.log("Filtered streams:", streams.length);
 
     return NextResponse.json({
         streams
