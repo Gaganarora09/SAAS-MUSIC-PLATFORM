@@ -106,12 +106,14 @@ export default function Dashboard() {
   // ── Auth redirect ──
   useEffect(() => {
     if (status==="loading") return;
-    // if (status === "unauthenticated") router.push("/");
+    if (status === "unauthenticated") router.push("/");
   }, [status,router]);
   
 //fetch streams from db after every 3 seconda
 useEffect(() => {
-  if (!session) return;
+  if (!session){
+    router.push("/");
+  }
 
   const fetchStreams = async () => {
     const res = await fetch(`/api/Streams?creatorId=${(session?.user as any)?.id}`);
