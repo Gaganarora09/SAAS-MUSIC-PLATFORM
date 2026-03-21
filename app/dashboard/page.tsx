@@ -111,9 +111,10 @@ export default function Dashboard() {
   
 //fetch streams from db after every 3 seconda
 useEffect(() => {
-  if (!session){
+  if (!session) {
     router.push("/");
-   console.log("session:", session);
+    console.log("session:", session);
+    return; // Prevent further execution if session is not ready
   }
 
   const fetchStreams = async () => {
