@@ -219,7 +219,7 @@ useEffect(() => {
 
   // ── Save YouTube link to database ──
   async function fetchurl() {
-    const response = await fetch("./api/Streams", {
+    const response = await fetch("/api/Streams", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -233,7 +233,7 @@ useEffect(() => {
 
   // ── Upvote in database ──
   async function upvote(streamId: string) {
-    const response = await fetch("./api/Streams/upvote", {
+    const response = await fetch("/api/Streams/upvote", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ streamId }),
