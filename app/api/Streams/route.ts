@@ -13,14 +13,18 @@ const CreateStreamSchema=z.object({
     url:z.string()
 })
 
+console.log(1);
+
 
 //user can create room.
 
 export async function POST(req:NextRequest){
     try{
+        console.log(2);
         const data=CreateStreamSchema.parse(await req.json());
         const isYt=data.url.match(YT_REGEX);
         if(!isYt){
+            console.log(3);
             return NextResponse.json({
                 message:"Url Is Wrong"
             },{
@@ -44,6 +48,8 @@ export async function POST(req:NextRequest){
             })
         }
 
+        console.log(4);
+
         const stream=await prismaClient.stream.create({
             data:{
                 userId:data.creatorId,
@@ -57,6 +63,7 @@ export async function POST(req:NextRequest){
             }
            
         });
+        console.log(5);
         return NextResponse.json({
             message:"Added stream",
             id:stream.id
@@ -71,7 +78,7 @@ export async function POST(req:NextRequest){
         })
     }
 } 
-
+console.log(8);
 //To fetch all the streams
 
 export async function GET(req:NextRequest){
@@ -84,12 +91,13 @@ export async function GET(req:NextRequest){
         },
         include:{upvotes:true}
     })
+    console.log(9);
     
     // Debug: Also fetch all streams to see what's in DB
     // const allStreams = await prismaClient.stream.findMany();
     // console.log("Total streams in DB:", allStreams.length);
     // console.log("Filtered streams:", streams.length);
-
+console.log(10);
     return NextResponse.json({
         streams
     })
