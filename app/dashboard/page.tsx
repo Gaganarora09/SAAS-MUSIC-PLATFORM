@@ -113,6 +113,7 @@ export default function Dashboard() {
 useEffect(() => {
   if (!session){
     router.push("/");
+    console.log("session is not created");
   }
 
   const fetchStreams = async () => {
