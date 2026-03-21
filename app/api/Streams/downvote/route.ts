@@ -32,6 +32,7 @@ export async function POST(req:NextRequest){
                
             }
         })
+        return NextResponse.json({ message: "Downvoted successfully" })
     }
     catch(e){
         return NextResponse.json({
