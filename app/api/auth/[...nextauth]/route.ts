@@ -26,11 +26,11 @@ export const authOptions: NextAuthOptions = {
         provider: params.account?.provider === "github" ? "Github" : "Google"
       }
     });
+    return true;
   } catch(e) {
-    console.error(e);
-    return false; 
+    console.error("signinerror",e);
+    return true; 
   }
-  return true;
 },
     async session({ session, token }) {
       if (session.user) {
