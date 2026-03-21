@@ -105,8 +105,9 @@ export default function Dashboard() {
 
   // ── Auth redirect ──
   useEffect(() => {
-    if (status === "unauthenticated") router.replace("/");
-  }, [status]);
+    if (status==="loading") return ;
+    if (status === "unauthenticated") router.push("/");
+  }, [status,router]);
   
 //fetch streams from db after every 3 seconda
 useEffect(() => {
