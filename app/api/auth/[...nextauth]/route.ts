@@ -15,18 +15,23 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn(params) {
-      if (!params.user.email) return false;
-      try {
-        await prismaClient.user.create({
-          data: {
-            email: params.user.email,
-            provider: "Google"
-          }
-        })
-      } catch(e) {}
-      return true;
-    },
+ async signIn(params) {
+  if (!params.user.email) return false;
+  try {
+    await prismaClient.user.upsert({
+      where: { email: params.user.email },
+      update: {},
+      create: {
+        email: params.user.email,
+        provider: params.account?.provider === "github" ? "Github" : "Google"
+      }
+    });
+  } catch(e) {
+    console.error(e);
+    return false; 
+  }
+  return true;
+},
     async session({ session, token }) {
       if (session.user) {
         const dbUser = await prismaClient.user.findUnique({
@@ -43,3 +48,4 @@ export const authOptions: NextAuthOptions = {
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST }
+
