@@ -106,39 +106,54 @@ export default function Dashboard() {
   // ── Auth redirect ──
   useEffect(() => {
     if (status==="loading") return;
-    if (status === "unauthenticated") router.push("/");
+    if (status === "unauthenticated") router.replace("/");
   }, [status,router]);
   
 //fetch streams from db after every 3 seconda
+
 useEffect(() => {
-  if (!session){
-    router.push("/");
-   console.log("session:", session);
-  }
+  if (status !== "authenticated") return;
+
+  const userId = (session?.user as any)?.id;
+  if (!userId) return;
 
   const fetchStreams = async () => {
-    const res = await fetch(`/api/Streams?creatorId=${(session?.user as any)?.id}`);
-    const data = await res.json();
-    if (data.streams) {
-      const sorted = data.streams
-        .filter((s: any) => s.active === true) // only queued songs
-        .map((s: any) => ({
-          id: s.id,
-          videoId: s.extractedId,
-          title: s.title || "YouTube Video",
-          votes: s.upvotes?.length ?? 0,
-          addedBy: "Someone",
-          streamId: s.id,
-        }))
-        .sort((a: any, b: any) => b.votes - a.votes);
-      setQueue(sorted);
+    try {
+      const res = await fetch(`/api/Streams?creatorId=${userId}`);
+
+      if (!res.ok) {
+        console.error("API error:", res.status);
+        return;
+      }
+
+      const data = await res.json();
+
+      if (data.streams) {
+        const sorted = data.streams
+          .filter((s: any) => s.active === true)
+          .map((s: any) => ({
+            id: s.id,
+            videoId: s.extractedId,
+            title: s.title || "YouTube Video",
+            votes: s.upvotes?.length ?? 0,
+            addedBy: "Someone",
+            streamId: s.id,
+          }))
+          .sort((a: any, b: any) => b.votes - a.votes);
+
+        setQueue(sorted);
+      }
+    } catch (err) {
+      console.error("Fetch error:", err);
     }
   };
 
   fetchStreams();
   const interval = setInterval(fetchStreams, 3000);
+
   return () => clearInterval(interval);
-}, [session]);
+
+}, [status, session]);
 
 
 
