@@ -14,25 +14,25 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GITHUB_SECRET ?? ""
     }),
   ],
-    secret: process.env.NEXTAUTH_SECRET,
+  
   callbacks: {
- async signIn(params) {
-  if (!params.user.email) return false;
-  try {
-    await prismaClient.user.upsert({
-      where: { email: params.user.email },
-      update: {},
-      create: {
-        email: params.user.email,
-        provider: params.account?.provider === "github" ? "Github" : "Google"
+    async signIn(params) {
+      if (!params.user.email) return false;
+      try {
+        await prismaClient.user.upsert({
+          where: { email: params.user.email },
+          update: {},
+          create: {
+            email: params.user.email,
+            provider: params.account?.provider === "github" ? "Github" : "Google"
+          }
+        });
+        return true;
+      } catch(e) {
+        console.error("signinerror",e);
+        return true; 
       }
-    });
-    return true;
-  } catch(e) {
-    console.error("signinerror",e);
-    return true; 
-  }
-},
+    },
     async session({ session, token }) {
       if (session.user) {
         const dbUser = await prismaClient.user.findUnique({
@@ -43,6 +43,10 @@ export const authOptions: NextAuthOptions = {
         }
       }
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      // Always redirect to /dashboard after sign-in
+      return "/dashboard";
     }
   }
 };
