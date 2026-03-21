@@ -111,10 +111,10 @@ export default function Dashboard() {
   
 //fetch streams from db after every 3 seconda
 useEffect(() => {
-  // if (!session){
-  //   router.push("/");
-  //  console.log("session:", session);
-  // }
+  if (!session){
+    router.push("/");
+   console.log("session:", session);
+  }
 
   const fetchStreams = async () => {
     const res = await fetch(`/api/Streams?creatorId=${(session?.user as any)?.id}`);
