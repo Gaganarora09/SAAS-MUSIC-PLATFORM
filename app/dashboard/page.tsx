@@ -33,6 +33,7 @@ interface QueueItem {
 // ── component ─────────────────────────────────────────────
 export default function Dashboard() {
   const { data: session, status } = useSession();
+  
   const router = useRouter();
 
   const [url, setUrl] = useState("");
@@ -101,9 +102,9 @@ export default function Dashboard() {
   }, [nowPlaying, ytReady]);
 
   // ── Auth redirect ──
-  useEffect(() => {
-    if (status === "unauthenticated") router.push("/");
-  }, [status, router]);
+  // useEffect(() => {
+  //   if (status === "unauthenticated") router.push("/");
+  // }, [status, router]);
   
 //fetch streams from db after every 3 seconda
 useEffect(() => {
