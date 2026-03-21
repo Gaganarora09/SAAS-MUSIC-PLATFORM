@@ -219,6 +219,11 @@ useEffect(() => {
 
   // ── Save YouTube link to database ──
   async function fetchurl() {
+    const userId = (session?.user as any)?.id;
+  if (!userId) {
+    console.error("No user ID in session!");
+    return null;
+  }
     const response = await fetch("/api/Streams", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -33,17 +33,21 @@ export const authOptions: NextAuthOptions = {
         return true; 
       }
     },
-    async session({ session, token }) {
-      if (session.user) {
-        const dbUser = await prismaClient.user.findUnique({
-          where: { email: session.user.email! }
-        });
-        if (dbUser) {
-          session.user.id = dbUser.id;
-        }
+   async session({ session, token }) {
+  if (session.user) {
+    try {
+      const dbUser = await prismaClient.user.findUnique({
+        where: { email: session.user.email! }
+      });
+      if (dbUser) {
+        (session.user as any).id = dbUser.id; // ← cast to any
       }
-      return session;
-    },
+    } catch(e) {
+      console.error("session error:", e);
+    }
+  }
+  return session;
+},
     async redirect({ url, baseUrl }) {
       // Always redirect to /dashboard after sign-in
       return "/dashboard";
