@@ -68,33 +68,16 @@ export async function POST(req:NextRequest){
 
 //To fetch all the streams
 
-export async function GET(req:NextRequest){
-    const creatorId = req.nextUrl.searchParams.get("creatorId");
-    if (!creatorId) {
-        return NextResponse.json({ message: "Missing creatorId" }, { status: 400 });
-    }
+export async function GET(req: NextRequest) {
+  const creatorId = req.nextUrl.searchParams.get("creatorId");
+  if (!creatorId) {
+    return NextResponse.json({ message: "Missing creatorId" }, { status: 400 });
+  }
 
-    // Get currently playing stream (active: false)
-    const currentlyPlaying = await prismaClient.stream.findFirst({
-        where: {
-            userId: creatorId,
-            active: false
-        },
-        include: { upvotes: true }
-    });
+  const streams = await prismaClient.stream.findMany({
+    where: { userId: creatorId },
+    include: { upvotes: true }
+  });
 
-    // Get queue (active: true)
-    const queue = await prismaClient.stream.findMany({
-        where: {
-            userId: creatorId,
-            active: true
-        },
-        include: { upvotes: true },
-        orderBy: { title: "asc" }
-    });
-
-    return NextResponse.json({
-        currentlyPlaying,
-        queue
-    });
+  return NextResponse.json({ streams });
 }
