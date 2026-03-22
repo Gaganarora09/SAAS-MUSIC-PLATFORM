@@ -203,11 +203,6 @@ export default function StreamPage() {
 
   return (
     <>
-      {/* Debug Info */}
-      <div style={{ background: '#222', color: '#fff', padding: '8px 16px', fontSize: 13, marginBottom: 12, borderRadius: 6 }}>
-        <b>Debug:</b> creatorId: <span style={{ color: '#ff3c5f' }}>{creatorId}</span> | Queue: [
-        {queue.map(q => q.title).join(', ') || 'empty'}]
-      </div>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
