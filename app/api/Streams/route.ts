@@ -69,15 +69,23 @@ export async function POST(req:NextRequest){
 //To fetch all the streams
 
 export async function GET(req: NextRequest) {
-  const creatorId = req.nextUrl.searchParams.get("creatorId");
-  if (!creatorId) {
-    return NextResponse.json({ message: "Missing creatorId" }, { status: 400 });
+  try {
+    const creatorId = req.nextUrl.searchParams.get("creatorId");
+    if (!creatorId) {
+      return NextResponse.json({ message: "Missing creatorId" }, { status: 400 });
+    }
+
+    const streams = await prismaClient.stream.findMany({
+      where: { userId: creatorId },
+      include: { upvotes: true }
+    });
+
+    return NextResponse.json({ streams });
+  } catch(e) {
+    console.error("GET streams error:", e);
+    return NextResponse.json({ 
+      message: "Error fetching streams",
+      error: e instanceof Error ? e.message : "Unknown error"
+    }, { status: 500 });
   }
-
-  const streams = await prismaClient.stream.findMany({
-    where: { userId: creatorId },
-    include: { upvotes: true }
-  });
-
-  return NextResponse.json({ streams });
 }
