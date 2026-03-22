@@ -78,7 +78,7 @@ export default function StreamPage() {
         }
       }
 
-      if (data.queue) {
+      if (data.streams) {
         const sorted = data.queue
           .map((s: any) => ({
             id: s.id,
