@@ -60,26 +60,27 @@ export default function StreamPage() {
       const res = await fetch(`/api/Streams?creatorId=${creatorId}`);
       const data = await res.json();
 
-      // Set now playing
-      if (data.currentlyPlaying) {
+      const currentRes = await fetch(`/api/Streams/current?creatorId=${creatorId}`);
+      const currentData = await currentRes.json();
+
+      if (currentData.stream) {
         const incoming = {
-          id: data.currentlyPlaying.id,
-          videoId: data.currentlyPlaying.extractedId,
-          title: data.currentlyPlaying.title,
-          votes: data.currentlyPlaying.upvotes?.length ?? 0,
+          id: currentData.stream.id,
+          videoId: currentData.stream.extractedId,
+          title: currentData.stream.title,
+          votes: 0,
           addedBy: "Someone",
-          streamId: data.currentlyPlaying.id,
+          streamId: currentData.stream.id,
         };
+        // Only update if song actually changed — prevents player restarting every 3s
         if (nowPlayingRef.current?.id !== incoming.id) {
           setNowPlaying(incoming);
         }
-      } else {
-        setNowPlaying(null);
       }
 
-      // Set queue
-      if (data.queue) {
-        const sorted = data.queue
+      if (data.streams) {
+        const sorted = data.streams
+          .filter((s: any) => s.active === true)
           .map((s: any) => ({
             id: s.id,
             videoId: s.extractedId,
@@ -90,8 +91,6 @@ export default function StreamPage() {
           }))
           .sort((a: any, b: any) => b.votes - a.votes);
         setQueue(sorted);
-      } else {
-        setQueue([]);
       }
     };
 

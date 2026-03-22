@@ -36,9 +36,7 @@ export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Room/creator ID state
-  const [roomId, setRoomId] = useState<string>("");
-  const [inputRoomId, setInputRoomId] = useState<string>("");
+
 
   const [url, setUrl] = useState("");
   const [preview, setPreview] = useState<{ id: string; title: string } | null>(null);
@@ -53,20 +51,7 @@ export default function Dashboard() {
   // We use a ref for queue so the onStateChange callback always has fresh data
   const queueRef = useRef<QueueItem[]>([]);
 
-  // On mount, set roomId from query param if present, else default to session user id
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const qRoomId = urlParams.get("room") || urlParams.get("creatorId");
-      if (qRoomId) {
-        setRoomId(qRoomId);
-        setInputRoomId("");
-      } else if (session?.user?.id) {
-        setRoomId((session.user as any).id);
-        setInputRoomId("");
-      }
-    }
-  }, [session]);
+
 
   // Keep queueRef in sync with queue state
   useEffect(() => {
@@ -134,12 +119,9 @@ useEffect(() => {
     router.push("/");
     return;
   }
-  if (!roomId) return;
-
   const fetchStreams = async () => {
-    const res = await fetch(`/api/Streams?creatorId=${roomId}`);
+    const res = await fetch(`/api/Streams?creatorId=${(session?.user as any)?.id}`);
     const data = await res.json();
-    // Use new API shape
     if (data.queue) {
       const sorted = data.queue
         .map((s: any) => ({
@@ -172,7 +154,7 @@ useEffect(() => {
   fetchStreams();
   const interval = setInterval(fetchStreams, 3000);
   return () => clearInterval(interval);
-}, [session, roomId]);
+}, [session]);
 
 
 
@@ -206,7 +188,7 @@ useEffect(() => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         streamId: next.streamId,
-        creatorId: roomId,
+        creatorId: (session?.user as any)?.id,
       }),
     });
   };
@@ -223,7 +205,7 @@ useEffect(() => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         streamId: next.streamId,
-        creatorId: roomId,
+        creatorId: (session?.user as any)?.id,
       }),
     });
   };
@@ -231,7 +213,6 @@ useEffect(() => {
   // ── Add song to queue ──
   const handleAddToQueue = async () => {
     if (!preview) return;
-    if (!roomId) return;
     const fetchedId = await fetchurl();
     const newItem: QueueItem = {
       id: Date.now().toString(),
@@ -248,12 +229,11 @@ useEffect(() => {
 
   // ── Save YouTube link to database ──
   async function fetchurl() {
-    if (!roomId) return null;
     const response = await fetch("/api/Streams", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        creatorId: roomId,
+        creatorId: (session?.user as any)?.id,
         url: url,
       }),
     });
@@ -296,7 +276,7 @@ useEffect(() => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         streamId: item.streamId,
-        creatorId: roomId
+        creatorId: (session?.user as any)?.id
       })
     });
   };
@@ -609,20 +589,7 @@ useEffect(() => {
             </button>
           </div>
         </nav>
-        {/* Room Join Box */}
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "16px 24px", margin: "24px auto 0", maxWidth: 420 }}>
-          <form onSubmit={e => { e.preventDefault(); if (inputRoomId) { setRoomId(inputRoomId); setInputRoomId(""); } }} style={{ display: "flex", gap: 12 }}>
-            <input
-              type="text"
-              placeholder="Enter Room/Creator ID to join..."
-              value={inputRoomId}
-              onChange={e => setInputRoomId(e.target.value)}
-              style={{ flex: 1, padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 16 }}
-            />
-            <button type="submit" style={{ fontFamily: "'Space Mono',monospace", fontSize: "0.9rem", background: "var(--accent)", color: "white", border: "none", borderRadius: 8, padding: "10px 18px", cursor: "pointer" }}>Join</button>
-          </form>
-          {roomId && <div style={{ marginTop: 8, color: "var(--muted)", fontSize: 13 }}>Current Room: <b>{roomId}</b></div>}
-        </div>
+
 
         {/* BODY */}
         <div className="rm-body">
@@ -722,15 +689,15 @@ useEffect(() => {
                   🔗 Share this room
                 </span>
                 <div style={{ fontSize:"0.78rem", color:"var(--muted)", fontFamily:"'Space Mono',monospace", whiteSpace:"nowrap" as const, overflow:"hidden", textOverflow:"ellipsis" }}>
-                  {typeof window !== "undefined" && roomId
-                    ? `${window.location.origin}/stream/${roomId}`
+                  {typeof window !== "undefined"
+                    ? `${window.location.origin}/stream/${(session?.user as any)?.id}`
                     : "loading..."}
                 </div>
               </div>
               <button
                 onClick={() => {
-                  if (typeof window !== "undefined" && roomId) {
-                    navigator.clipboard.writeText(`${window.location.origin}/stream/${roomId}`);
+                  if (typeof window !== "undefined") {
+                    navigator.clipboard.writeText(`${window.location.origin}/stream/${(session?.user as any)?.id}`);
                     alert("Link Copied!");
                   }
                 }}
