@@ -119,37 +119,26 @@ useEffect(() => {
     router.push("/");
     return;
   }
-  const fetchStreams = async () => {
-    const res = await fetch(`/api/Streams?creatorId=${(session?.user as any)?.id}`);
-    const data = await res.json();
-    if (data.queue) {
-      const sorted = data.queue
-        .map((s: any) => ({
-          id: s.id,
-          videoId: s.extractedId,
-          title: s.title || "YouTube Video",
-          votes: s.upvotes?.length ?? 0,
-          addedBy: "Someone",
-          streamId: s.id,
-        }))
-        .sort((a: any, b: any) => b.votes - a.votes);
-      setQueue(sorted);
-    } else {
-      setQueue([]);
-    }
-    if (data.currentlyPlaying) {
-      setNowPlaying({
-        id: data.currentlyPlaying.id,
-        videoId: data.currentlyPlaying.extractedId,
-        title: data.currentlyPlaying.title,
-        votes: data.currentlyPlaying.upvotes?.length ?? 0,
+ const fetchStreams = async () => {
+  const res = await fetch(`/api/Streams?creatorId=${(session?.user as any)?.id}`);
+  if (!res.ok) return; // don't clear queue on error
+  const data = await res.json();
+  
+  if (data.streams) {
+    const sorted = data.streams
+      .filter((s: any) => s.active === true) // only queued songs
+      .map((s: any) => ({
+        id: s.id,
+        videoId: s.extractedId,
+        title: s.title || "YouTube Video",
+        votes: s.upvotes?.length ?? 0,
         addedBy: "Someone",
-        streamId: data.currentlyPlaying.id,
-      });
-    } else {
-      setNowPlaying(null);
-    }
-  };
+        streamId: s.id,
+      }))
+      .sort((a: any, b: any) => b.votes - a.votes);
+    setQueue(sorted);
+  }
+};
 
   fetchStreams();
   const interval = setInterval(fetchStreams, 3000);
