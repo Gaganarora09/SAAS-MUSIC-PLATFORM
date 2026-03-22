@@ -32,9 +32,13 @@ interface QueueItem {
 
 // ── component ─────────────────────────────────────────────
 export default function Dashboard() {
+
   const { data: session, status } = useSession();
-  
   const router = useRouter();
+
+  // Room/creator ID state
+  const [roomId, setRoomId] = useState<string>("");
+  const [inputRoomId, setInputRoomId] = useState<string>("");
 
   const [url, setUrl] = useState("");
   const [preview, setPreview] = useState<{ id: string; title: string } | null>(null);
@@ -48,6 +52,21 @@ export default function Dashboard() {
   const playerRef = useRef<any>(null);            // holds the YT.Player instance
   // We use a ref for queue so the onStateChange callback always has fresh data
   const queueRef = useRef<QueueItem[]>([]);
+
+  // On mount, set roomId from query param if present, else default to session user id
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const qRoomId = urlParams.get("room") || urlParams.get("creatorId");
+      if (qRoomId) {
+        setRoomId(qRoomId);
+        setInputRoomId("");
+      } else if (session?.user?.id) {
+        setRoomId((session.user as any).id);
+        setInputRoomId("");
+      }
+    }
+  }, [session]);
 
   // Keep queueRef in sync with queue state
   useEffect(() => {
@@ -113,16 +132,16 @@ export default function Dashboard() {
 useEffect(() => {
   if (!session) {
     router.push("/");
-    console.log("session:", session);
-    return; // Prevent further execution if session is not ready
+    return;
   }
+  if (!roomId) return;
 
   const fetchStreams = async () => {
-    const res = await fetch(`/api/Streams?creatorId=${(session?.user as any)?.id}`);
+    const res = await fetch(`/api/Streams?creatorId=${roomId}`);
     const data = await res.json();
-    if (data.streams) {
-      const sorted = data.streams
-        .filter((s: any) => s.active === true) // only queued songs
+    // Use new API shape
+    if (data.queue) {
+      const sorted = data.queue
         .map((s: any) => ({
           id: s.id,
           videoId: s.extractedId,
@@ -133,13 +152,27 @@ useEffect(() => {
         }))
         .sort((a: any, b: any) => b.votes - a.votes);
       setQueue(sorted);
+    } else {
+      setQueue([]);
+    }
+    if (data.currentlyPlaying) {
+      setNowPlaying({
+        id: data.currentlyPlaying.id,
+        videoId: data.currentlyPlaying.extractedId,
+        title: data.currentlyPlaying.title,
+        votes: data.currentlyPlaying.upvotes?.length ?? 0,
+        addedBy: "Someone",
+        streamId: data.currentlyPlaying.id,
+      });
+    } else {
+      setNowPlaying(null);
     }
   };
 
   fetchStreams();
   const interval = setInterval(fetchStreams, 3000);
   return () => clearInterval(interval);
-}, [session]);
+}, [session, roomId]);
 
 
 
@@ -168,17 +201,14 @@ useEffect(() => {
     const next = sorted[0];
     setNowPlaying(next);
     setQueue(prev => prev.filter(q => q.id !== next.id));
-
-
-    // ← ADD THIS
-  fetch("/api/Streams/current", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      streamId: next.streamId,
-      creatorId: (session?.user as any)?.id,
-    }),
-  });
+    fetch("/api/Streams/current", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        streamId: next.streamId,
+        creatorId: roomId,
+      }),
+    });
   };
 
   // ── Play next top-voted song (normal version for button click) ──
@@ -188,21 +218,20 @@ useEffect(() => {
     const next = sorted[0];
     setNowPlaying(next);
     setQueue(prev => prev.filter(q => q.id !== next.id));
-
-      // ← ADD THIS
-  fetch("/api/Streams/current", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      streamId: next.streamId,
-      creatorId: (session?.user as any)?.id,
-    }),
-  });
+    fetch("/api/Streams/current", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        streamId: next.streamId,
+        creatorId: roomId,
+      }),
+    });
   };
 
   // ── Add song to queue ──
   const handleAddToQueue = async () => {
     if (!preview) return;
+    if (!roomId) return;
     const fetchedId = await fetchurl();
     const newItem: QueueItem = {
       id: Date.now().toString(),
@@ -219,16 +248,12 @@ useEffect(() => {
 
   // ── Save YouTube link to database ──
   async function fetchurl() {
-    const userId = (session?.user as any)?.id;
-  if (!userId) {
-    console.error("No user ID in session!");
-    return null;
-  }
+    if (!roomId) return null;
     const response = await fetch("/api/Streams", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        creatorId: session?.user?.id,
+        creatorId: roomId,
         url: url,
       }),
     });
@@ -263,20 +288,18 @@ useEffect(() => {
   };
 
   // ── Manually click play on a queue item ──
- const handlePlay = (item: QueueItem) => {
-  setNowPlaying(item);
-  setQueue(prev => prev.filter(q => q.id !== item.id));
-  
-  // ← save to DB so other browsers know what's playing
-  fetch("/api/Streams/current", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      streamId: item.streamId,
-      creatorId: (session?.user as any)?.id
-    })
-  });
-};
+  const handlePlay = (item: QueueItem) => {
+    setNowPlaying(item);
+    setQueue(prev => prev.filter(q => q.id !== item.id));
+    fetch("/api/Streams/current", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        streamId: item.streamId,
+        creatorId: roomId
+      })
+    });
+  };
 
   if (status === "loading") {
     return (
@@ -586,6 +609,20 @@ useEffect(() => {
             </button>
           </div>
         </nav>
+        {/* Room Join Box */}
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "16px 24px", margin: "24px auto 0", maxWidth: 420 }}>
+          <form onSubmit={e => { e.preventDefault(); if (inputRoomId) { setRoomId(inputRoomId); setInputRoomId(""); } }} style={{ display: "flex", gap: 12 }}>
+            <input
+              type="text"
+              placeholder="Enter Room/Creator ID to join..."
+              value={inputRoomId}
+              onChange={e => setInputRoomId(e.target.value)}
+              style={{ flex: 1, padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 16 }}
+            />
+            <button type="submit" style={{ fontFamily: "'Space Mono',monospace", fontSize: "0.9rem", background: "var(--accent)", color: "white", border: "none", borderRadius: 8, padding: "10px 18px", cursor: "pointer" }}>Join</button>
+          </form>
+          {roomId && <div style={{ marginTop: 8, color: "var(--muted)", fontSize: 13 }}>Current Room: <b>{roomId}</b></div>}
+        </div>
 
         {/* BODY */}
         <div className="rm-body">
@@ -682,18 +719,20 @@ useEffect(() => {
             }}>
               <div style={{ flex:1, minWidth:0 }}>
                 <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"0.62rem", letterSpacing:"0.2em", textTransform:"uppercase" as const, color:"var(--muted)", marginBottom:"6px", display:"block" }}>
-                  🔗 Share your room
+                  🔗 Share this room
                 </span>
                 <div style={{ fontSize:"0.78rem", color:"var(--muted)", fontFamily:"'Space Mono',monospace", whiteSpace:"nowrap" as const, overflow:"hidden", textOverflow:"ellipsis" }}>
-                  {typeof window !== "undefined"
-                    ? `${window.location.origin}/stream/${(session?.user as any)?.id}`
+                  {typeof window !== "undefined" && roomId
+                    ? `${window.location.origin}/stream/${roomId}`
                     : "loading..."}
                 </div>
               </div>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/stream/${(session?.user as any)?.id}`);
-                  alert("Link Copied!");
+                  if (typeof window !== "undefined" && roomId) {
+                    navigator.clipboard.writeText(`${window.location.origin}/stream/${roomId}`);
+                    alert("Link Copied!");
+                  }
                 }}
                 style={{ fontFamily:"'Space Mono',monospace", fontSize:"0.62rem", letterSpacing:"0.1em", textTransform:"uppercase" as const, background:"none", border:"1px solid var(--border)", color:"var(--muted)", padding:"8px 14px", borderRadius:"6px", cursor:"pointer", whiteSpace:"nowrap" as const, flexShrink:0 }}
               >
