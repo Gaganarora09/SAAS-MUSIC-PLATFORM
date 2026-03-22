@@ -78,9 +78,8 @@ export default function StreamPage() {
         }
       }
 
-      if (data.streams) {
-        const sorted = data.streams
-          .filter((s: any) => s.active === true)
+      if (data.queue) {
+        const sorted = data.queue
           .map((s: any) => ({
             id: s.id,
             videoId: s.extractedId,
