@@ -13,25 +13,21 @@ const CreateStreamSchema=z.object({
     url:z.string()
 })
 
-console.log(1);
-
 
 //user can create room.
 
 export async function POST(req:NextRequest){
     try{
-        console.log(2);
-        const data=CreateStreamSchema.parse(await req.json());
+        const data=await CreateStreamSchema.parse(await req.json());
         const isYt=data.url.match(YT_REGEX);
         if(!isYt){
-            console.log(3);
             return NextResponse.json({
                 message:"Url Is Wrong"
             },{
                 status:411
             })
         }
-        const extractedId = data.url.split("?v=")[1]?.split("&")[0];;
+        const extractedId = data.url.split("?v=")[1]?.split("&")[0];
         const res= await youtubesearchapi.GetVideoDetails(extractedId);
 
         // console.log(res.title);
@@ -48,8 +44,6 @@ export async function POST(req:NextRequest){
             })
         }
 
-        console.log(4);
-
         const stream=await prismaClient.stream.create({
             data:{
                 userId:data.creatorId,
@@ -63,7 +57,6 @@ export async function POST(req:NextRequest){
             }
            
         });
-        console.log(5);
         return NextResponse.json({
             message:"Added stream",
             id:stream.id
@@ -78,27 +71,36 @@ export async function POST(req:NextRequest){
         })
     }
 } 
-console.log(8);
+
 //To fetch all the streams
 
 export async function GET(req:NextRequest){
-    const creatorId =req.nextUrl.searchParams.get("creatorId");
-    // console.log("Searching for creatorId:", creatorId);
-    
-    const streams=await prismaClient.stream.findMany({
-        where:{
-            userId:creatorId??""
+    const creatorId = req.nextUrl.searchParams.get("creatorId");
+    if (!creatorId) {
+        return NextResponse.json({ message: "Missing creatorId" }, { status: 400 });
+    }
+
+    // Get currently playing stream (active: false)
+    const currentlyPlaying = await prismaClient.stream.findFirst({
+        where: {
+            userId: creatorId,
+            active: false
         },
-        include:{upvotes:true}
-    })
-    console.log(9);
-    
-    // Debug: Also fetch all streams to see what's in DB
-    // const allStreams = await prismaClient.stream.findMany();
-    // console.log("Total streams in DB:", allStreams.length);
-    // console.log("Filtered streams:", streams.length);
-console.log(10);
+        include: { upvotes: true }
+    });
+
+    // Get queue (active: true)
+    const queue = await prismaClient.stream.findMany({
+        where: {
+            userId: creatorId,
+            active: true
+        },
+        include: { upvotes: true },
+        orderBy: { title: "asc" } // You may want to order by createdAt if available
+    });
+
     return NextResponse.json({
-        streams
-    })
+        currentlyPlaying,
+        queue
+    });
 }
