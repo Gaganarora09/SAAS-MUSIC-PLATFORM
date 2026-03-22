@@ -1,72 +1,56 @@
-
-import {NextRequest,NextResponse} from "next/server";
-import {z} from "zod";
-import {prismaClient} from "@/app/lib/db"
-import youtubesearchapi from "youtube-search-api";
-var YT_REGEX = /^(?:(?:https?:)?\/\/)?(?:www\.)?(?:m\.)?(?:youtu(?:be)?\.com\/(?:v\/|embed\/|watch(?:\/|\?v=))|youtu\.be\/)((?:\w|-){11})(?:\S+)?$/;
-
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { prismaClient } from "@/app/lib/db";
 import { StreamType } from "@prisma/client";
 
+const YT_REGEX = /^(?:(?:https?:)?\/\/)?(?:www\.)?(?:m\.)?(?:youtu(?:be)?\.com\/(?:v\/|embed\/|watch(?:\/|\?v=))|youtu\.be\/)((?:\w|-){11})(?:\S+)?$/;
 
-const CreateStreamSchema=z.object({
-    creatorId:z.string(),
-    url:z.string()
-})
+const CreateStreamSchema = z.object({
+  creatorId: z.string(),
+  url: z.string()
+});
 
-
-//user can create room.
-
-export async function POST(req:NextRequest){
-    try{
-        const data=await CreateStreamSchema.parse(await req.json());
-        const isYt=data.url.match(YT_REGEX);
-        if(!isYt){
-            return NextResponse.json({
-                message:"Url Is Wrong"
-            },{
-                status:411
-            })
-        }
-        const extractedId = data.url.split("?v=")[1]?.split("&")[0];
-        const res= await youtubesearchapi.GetVideoDetails(extractedId);
-        const thumbnails=res.thumbnail.thumbnails;
-        thumbnails.sort((a :{width:number},b:{width:number})=>a.width<b.width?-1:1);
-
-        if(!extractedId){
-            return NextResponse.json({
-                message:"Invalid YouTube URL format"
-            },{
-                status:411
-            })
-        }
-
-        const stream=await prismaClient.stream.create({
-            data:{
-                userId:data.creatorId,
-                url:data.url,
-                extractedId,
-                type:StreamType.Youtube,
-                title:res.title??"Cant find video",
-                smallImg:(thumbnails.length>1?thumbnails[thumbnails.length-2]:thumbnails[thumbnails.length-1])?.url??"",
-                bigImg:thumbnails[thumbnails.length-1]?.url??"https://plus.unsplash.com/premium_photo-1673967831980-1d377baaded2?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8Y2F0c3xlbnwwfHwwfHx8MA%3D%3D",
-            }
-        });
-        return NextResponse.json({
-            message:"Added stream",
-            id:stream.id
-        })
-    }catch(e){
-        console.error("Error details:", e);
-        return NextResponse.json({
-            message:"Error creating stream",
-            error: e instanceof Error ? e.message : "Unknown error"
-        },{
-            status:500
-        })
+export async function POST(req: NextRequest) {
+  try {
+    const data = CreateStreamSchema.parse(await req.json());
+    const isYt = data.url.match(YT_REGEX);
+    if (!isYt) {
+      return NextResponse.json({ message: "Url Is Wrong" }, { status: 411 });
     }
-} 
 
-//To fetch all the streams
+    const extractedId = data.url.split("?v=")[1]?.split("&")[0];
+    if (!extractedId) {
+      return NextResponse.json({ message: "Invalid YouTube URL format" }, { status: 411 });
+    }
+
+    // Use YouTube oEmbed API instead of youtubesearchapi
+    const oembedRes = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${extractedId}&format=json`
+    );
+    const oembedData = await oembedRes.json();
+    const title = oembedData.title ?? "YouTube Video";
+
+    const stream = await prismaClient.stream.create({
+      data: {
+        userId: data.creatorId,
+        url: data.url,
+        extractedId,
+        type: StreamType.Youtube,
+        title,
+        smallImg: `https://img.youtube.com/vi/${extractedId}/hqdefault.jpg`,
+        bigImg: `https://img.youtube.com/vi/${extractedId}/maxresdefault.jpg`,
+      }
+    });
+
+    return NextResponse.json({ message: "Added stream", id: stream.id });
+  } catch(e) {
+    console.error("Error details:", e);
+    return NextResponse.json({
+      message: "Error creating stream",
+      error: e instanceof Error ? e.message : "Unknown error"
+    }, { status: 500 });
+  }
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -74,16 +58,14 @@ export async function GET(req: NextRequest) {
     if (!creatorId) {
       return NextResponse.json({ message: "Missing creatorId" }, { status: 400 });
     }
-
     const streams = await prismaClient.stream.findMany({
       where: { userId: creatorId },
       include: { upvotes: true }
     });
-
     return NextResponse.json({ streams });
   } catch(e) {
     console.error("GET streams error:", e);
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: "Error fetching streams",
       error: e instanceof Error ? e.message : "Unknown error"
     }, { status: 500 });
