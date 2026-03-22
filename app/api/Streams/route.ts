@@ -29,14 +29,10 @@ export async function POST(req:NextRequest){
         }
         const extractedId = data.url.split("?v=")[1]?.split("&")[0];
         const res= await youtubesearchapi.GetVideoDetails(extractedId);
-
-        // console.log(res.title);
-        // console.log(res.thumbnail.thumbnails);
         const thumbnails=res.thumbnail.thumbnails;
         thumbnails.sort((a :{width:number},b:{width:number})=>a.width<b.width?-1:1);
 
-
-         if(!extractedId){
+        if(!extractedId){
             return NextResponse.json({
                 message:"Invalid YouTube URL format"
             },{
@@ -53,10 +49,14 @@ export async function POST(req:NextRequest){
                 title:res.title??"Cant find video",
                 smallImg:(thumbnails.length>1?thumbnails[thumbnails.length-2]:thumbnails[thumbnails.length-1])?.url??"",
                 bigImg:thumbnails[thumbnails.length-1]?.url??"https://plus.unsplash.com/premium_photo-1673967831980-1d377baaded2?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8Y2F0c3xlbnwwfHwwfHx8MA%3D%3D",
-
             }
-           
         });
+        // Log the current queue after adding
+        const queue = await prismaClient.stream.findMany({
+            where: { userId: data.creatorId },
+            orderBy: { createdAt: "asc" }
+        });
+        console.log(`[POST /api/Streams] Added stream for user ${data.creatorId}. Current queue:`, queue.map(q => ({id: q.id, title: q.title, active: q.active})));
         return NextResponse.json({
             message:"Added stream",
             id:stream.id
@@ -96,8 +96,11 @@ export async function GET(req:NextRequest){
             active: true
         },
         include: { upvotes: true },
-        orderBy: { title: "asc" } // You may want to order by createdAt if available
+        orderBy: { createdAt: "asc" }
     });
+
+    // Log the current queue and now playing
+    console.log(`[GET /api/Streams] For user ${creatorId}: nowPlaying:`, currentlyPlaying?.title, 'queue:', queue.map(q => q.title));
 
     return NextResponse.json({
         currentlyPlaying,
