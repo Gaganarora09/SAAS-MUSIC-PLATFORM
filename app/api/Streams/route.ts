@@ -19,7 +19,6 @@ const CreateStreamSchema=z.object({
 export async function POST(req:NextRequest){
     try{
         const data=await CreateStreamSchema.parse(await req.json());
-        console.log(`[POST /api/Streams] Attempting to add song for creatorId: ${data.creatorId}, url: ${data.url}`);
         const isYt=data.url.match(YT_REGEX);
         if(!isYt){
             return NextResponse.json({
@@ -52,12 +51,6 @@ export async function POST(req:NextRequest){
                 bigImg:thumbnails[thumbnails.length-1]?.url??"https://plus.unsplash.com/premium_photo-1673967831980-1d377baaded2?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8Y2F0c3xlbnwwfHwwfHx8MA%3D%3D",
             }
         });
-        // Log the current queue after adding
-        const queue = await prismaClient.stream.findMany({
-            where: { userId: data.creatorId },
-            orderBy: { createdAt: "asc" }
-        });
-        console.log(`[POST /api/Streams] Added stream for user ${data.creatorId}. Current queue:`, queue.map(q => ({id: q.id, title: q.title, active: q.active})));
         return NextResponse.json({
             message:"Added stream",
             id:stream.id
@@ -97,11 +90,8 @@ export async function GET(req:NextRequest){
             active: true
         },
         include: { upvotes: true },
-        orderBy: { createdAt: "asc" }
+        orderBy: { title: "asc" }
     });
-
-    // Log the current queue and now playing
-    console.log(`[GET /api/Streams] For user ${creatorId}: nowPlaying:`, currentlyPlaying?.title, 'queue:', queue.map(q => q.title));
 
     return NextResponse.json({
         currentlyPlaying,
