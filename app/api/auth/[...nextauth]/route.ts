@@ -48,10 +48,10 @@ export const authOptions: NextAuthOptions = {
   }
   return session;
 },
-    async redirect({ url, baseUrl }) {
-      // Always redirect to /dashboard after sign-in
-      return "/dashboard";
-    }
+    // async redirect({ url, baseUrl }) {
+    //   // Always redirect to /dashboard after sign-in
+    //   return "/dashboard";
+    // }
   }
 };
 
