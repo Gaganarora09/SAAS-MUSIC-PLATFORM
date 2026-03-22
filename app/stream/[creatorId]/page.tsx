@@ -133,7 +133,6 @@ export default function StreamPage() {
         controls: 0,
         disablekb: 1,
         modestbranding: 1,
-        mute:1,
       },
     });
   }, [nowPlaying, ytReady]);
