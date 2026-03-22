@@ -56,30 +56,36 @@ export default function StreamPage() {
 
   // ── Fetch streams + currently playing from DB every 3 seconds ──
   useEffect(() => {
-    const fetchStreams = async () => {
+  const fetchStreams = async () => {
+    try {
       const res = await fetch(`/api/Streams?creatorId=${creatorId}`);
+      if (!res.ok) return; // don't crash on error
+
       const data = await res.json();
 
+      // fetch currently playing
       const currentRes = await fetch(`/api/Streams/current?creatorId=${creatorId}`);
-      const currentData = await currentRes.json();
-
-      if (currentData.stream) {
-        const incoming = {
-          id: currentData.stream.id,
-          videoId: currentData.stream.extractedId,
-          title: currentData.stream.title,
-          votes: 0,
-          addedBy: "Someone",
-          streamId: currentData.stream.id,
-        };
-        // Only update if song actually changed — prevents player restarting every 3s
-        if (nowPlayingRef.current?.id !== incoming.id) {
-          setNowPlaying(incoming);
+      if (currentRes.ok) {
+        const currentData = await currentRes.json();
+        if (currentData.stream) {
+          const incoming = {
+            id: currentData.stream.id,
+            videoId: currentData.stream.extractedId,
+            title: currentData.stream.title,
+            votes: 0,
+            addedBy: "Someone",
+            streamId: currentData.stream.id,
+          };
+          if (nowPlayingRef.current?.id !== incoming.id) {
+            setNowPlaying(incoming);
+          }
         }
       }
 
+      // update queue — only active songs, not currently playing
       if (data.streams) {
-        const sorted = data.queue
+        const sorted = data.streams
+          .filter((s: any) => s.active === true) // ← only queued songs
           .map((s: any) => ({
             id: s.id,
             videoId: s.extractedId,
@@ -91,12 +97,16 @@ export default function StreamPage() {
           .sort((a: any, b: any) => b.votes - a.votes);
         setQueue(sorted);
       }
-    };
+    } catch(e) {
+      console.error("fetchStreams error:", e);
+      // don't clear queue on error
+    }
+  };
 
-    fetchStreams();
-    const interval = setInterval(fetchStreams, 3000);
-    return () => clearInterval(interval);
-  }, [creatorId]);
+  fetchStreams();
+  const interval = setInterval(fetchStreams, 3000);
+  return () => clearInterval(interval);
+}, [creatorId]);
 
   // ── Load YouTube IFrame API script ──
   useEffect(() => {
