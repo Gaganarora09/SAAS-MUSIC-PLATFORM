@@ -19,6 +19,7 @@ const CreateStreamSchema=z.object({
 export async function POST(req:NextRequest){
     try{
         const data=await CreateStreamSchema.parse(await req.json());
+        console.log(`[POST /api/Streams] Attempting to add song for creatorId: ${data.creatorId}, url: ${data.url}`);
         const isYt=data.url.match(YT_REGEX);
         if(!isYt){
             return NextResponse.json({
