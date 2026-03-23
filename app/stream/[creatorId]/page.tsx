@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession, signIn } from "next-auth/react";
+import { useSession, signIn,signOut } from "next-auth/react";
 import { useParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 
@@ -305,6 +305,9 @@ export default function StreamPage() {
         <nav className="rm-nav">
           <div className="rm-logo">Muzer <span className="rm-logo-dot" /></div>
           <div className="rm-nav-right">
+             <button className="rm-signout" onClick={() => signOut({ callbackUrl: "/" })}>
+              Sign Out
+            </button>
             {session && (
               <span className={isCreator ? "rm-creator-badge" : "rm-viewer-badge"}>
                 {isCreator ? "🎛 Host" : "👀 Viewer"}
@@ -323,6 +326,13 @@ export default function StreamPage() {
             )}
           </div>
         </nav>
+
+
+       
+
+
+
+
 
         <div className="rm-body">
           <div className="rm-left">

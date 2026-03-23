@@ -99,6 +99,7 @@ export default function Dashboard() {
           // When the video finishes, automatically play the next top-voted song
           if (event.data === 0) {
             playNextFromRef(); // uses ref so we always get fresh queue
+            
           }
         },
       },
@@ -255,12 +256,26 @@ useEffect(() => {
         .sort((a, b) => b.votes - a.votes)
     );
   };
+  //delete upvotes:
+
+//   async function deleteUpvote(item: QueueItem){
+//     await prisma.upvote.delete({
+//   where: {
+//     userId_streamId: {
+//       userId: "USER_ID",
+//       streamId: item.streamId
+//     }
+//   }
+// });
+//   } 
+
+
 
   // ── Manually click play on a queue item ──
-  const handlePlay = (item: QueueItem) => {
+  const handlePlay = async (item: QueueItem) => {
     setNowPlaying(item);
     setQueue(prev => prev.filter(q => q.id !== item.id));
-    fetch("/api/Streams/current", {
+    await fetch("/api/Streams/current", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -268,6 +283,7 @@ useEffect(() => {
         creatorId: (session?.user as any)?.id
       })
     });
+    // deleteUpvote(item);
   };
 
   if (status === "loading") {
