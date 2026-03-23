@@ -439,6 +439,7 @@ export default function Home() {
         {/* ── NAV ── */}
         <nav className="lp-nav">
           <div className="lp-logo">Muzer <span className="lp-logo-dot" /></div>
+          
           <div className="lp-nav-right">
             {status === "loading" && <div className="lp-nav-skeleton" />}
 
@@ -500,7 +501,7 @@ export default function Home() {
             </h1>
             <p className="lp-desc">
               Create a room, drop YouTube links, and let your crew vote on what plays next.
-              Real-time democracy for your playlist.
+              Real-time democracy for your playlist. Signin to make your own music room.
             </p>
             <div className="lp-hero-cta">
               {status === "unauthenticated" && (

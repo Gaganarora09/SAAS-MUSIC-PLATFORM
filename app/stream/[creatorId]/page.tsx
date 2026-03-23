@@ -104,7 +104,7 @@ export default function StreamPage() {
   };
 
   fetchStreams();
-  const interval = setInterval(fetchStreams, 3000);
+  const interval = setInterval(fetchStreams, 1000);
   return () => clearInterval(interval);
 }, [creatorId]);
 
