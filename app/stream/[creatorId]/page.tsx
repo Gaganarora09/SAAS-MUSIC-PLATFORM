@@ -104,7 +104,7 @@ export default function StreamPage() {
   };
 
   fetchStreams();
-  const interval = setInterval(fetchStreams, 1000);
+  const interval = setInterval(fetchStreams, 2000);
   return () => clearInterval(interval);
 }, [creatorId]);
 
@@ -168,7 +168,7 @@ export default function StreamPage() {
     setQueue(prev => [...prev, newItem].sort((a, b) => b.votes - a.votes));
     setUrl(""); setPreview(null);
   };
-
+// add creator id and url to database and returning streamid
   async function fetchurl() {
     const response = await fetch("/api/Streams", {
       method: "POST",

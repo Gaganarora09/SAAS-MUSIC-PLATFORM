@@ -142,7 +142,7 @@ useEffect(() => {
 };
 
   fetchStreams();
-  const interval = setInterval(fetchStreams, 1000);
+  const interval = setInterval(fetchStreams, 2000);
   return () => clearInterval(interval);
 }, [session]);
 
@@ -166,14 +166,14 @@ useEffect(() => {
   // ── Play next top-voted song (uses ref for fresh queue data) ──
   // We need this version because it's called inside the YT onStateChange callback
   // where the queue state would be stale (closure problem)
-  const playNextFromRef = () => {
+  const playNextFromRef = async () => {
     const current = queueRef.current;
     if (current.length === 0) return;
     const sorted = [...current].sort((a, b) => b.votes - a.votes);
     const next = sorted[0];
     setNowPlaying(next);
     setQueue(prev => prev.filter(q => q.id !== next.id));
-    fetch("/api/Streams/current", {
+   await  fetch("/api/Streams/current", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -181,16 +181,17 @@ useEffect(() => {
         creatorId: (session?.user as any)?.id,
       }),
     });
+    await deleteVote(next);
   };
 
   // ── Play next top-voted song (normal version for button click) ──
-  const playNext = () => {
+  const playNext = async () => {
     if (queue.length === 0) return;
     const sorted = [...queue].sort((a, b) => b.votes - a.votes);
     const next = sorted[0];
     setNowPlaying(next);
     setQueue(prev => prev.filter(q => q.id !== next.id));
-    fetch("/api/Streams/current", {
+    await fetch("/api/Streams/current", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -198,6 +199,7 @@ useEffect(() => {
         creatorId: (session?.user as any)?.id,
       }),
     });
+    await deleteVote(next);
   };
 
   // ── Add song to queue ──
@@ -216,6 +218,21 @@ useEffect(() => {
     setUrl("");
     setPreview(null);
   };
+
+//delete votes from db when a video gets played
+   async function deleteVote(Item:QueueItem){
+    await fetch("/api/Streams/deleteVote",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({
+        streamId:Item.streamId
+      })
+    })
+  }
+
+
 
   // ── Save YouTube link to database ──
   async function fetchurl() {
@@ -256,18 +273,7 @@ useEffect(() => {
         .sort((a, b) => b.votes - a.votes)
     );
   };
-  //delete upvotes:
 
-//   async function deleteUpvote(item: QueueItem){
-//     await prisma.upvote.delete({
-//   where: {
-//     userId_streamId: {
-//       userId: "USER_ID",
-//       streamId: item.streamId
-//     }
-//   }
-// });
-//   } 
 
 
 
@@ -283,7 +289,7 @@ useEffect(() => {
         creatorId: (session?.user as any)?.id
       })
     });
-    // deleteUpvote(item);
+    await deleteVote(item);
   };
 
   if (status === "loading") {
