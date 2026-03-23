@@ -342,14 +342,6 @@ export default function StreamPage() {
             )}
           </div>
         </nav>
-
-
-       
-
-
-
-
-
         <div className="rm-body">
           <div className="rm-left">
             <div className="rm-player">
@@ -359,6 +351,35 @@ export default function StreamPage() {
                 </span>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   {nowPlaying && <span className="rm-player-title">{nowPlaying.title}</span>}
+
+
+
+
+     
+
+  {/* 🔊 Unmute / Mute button */}
+                      {nowPlaying && (
+                          <button
+                    className="rm-play-next-btn"
+                    onClick={() => {
+                      if (playerRef.current?.isMuted()) {
+                        playerRef.current.unMute();
+                      } else {
+                        playerRef.current.mute();
+                      }
+                    }}
+                  >
+                    🔊 Sound
+                  </button>
+                )}
+
+
+
+
+
+
+
+
                   {isCreator && (
                     <button className="rm-play-next-btn" onClick={playNext} disabled={queue.length === 0}>
                       ⏭ Play Next
