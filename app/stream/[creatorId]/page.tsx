@@ -298,6 +298,15 @@ export default function StreamPage() {
           .rm-body{grid-template-columns:1fr;padding:20px}
           .rm-queue-card{position:static;max-height:500px}
           .rm-nav{padding:0 20px}
+          //signout button class
+            .rm-signout {
+          font-family:'Space Mono',monospace; font-size:0.65rem;
+          letter-spacing:0.1em; text-transform:uppercase;
+          background:none; border:1px solid var(--border);
+          color:var(--muted); padding:7px 16px; border-radius:2px;
+          cursor:pointer; transition:all 0.2s;
+        }
+        .rm-signout:hover{border-color:var(--accent);color:var(--accent)}
         }
       `}</style>
 
@@ -305,9 +314,14 @@ export default function StreamPage() {
         <nav className="rm-nav">
           <div className="rm-logo">Muzer <span className="rm-logo-dot" /></div>
           <div className="rm-nav-right">
-             <button className="rm-signout" onClick={() => signOut({ callbackUrl: "/" })}>
-              Sign Out
-            </button>
+             {session && (
+  <button
+    className="rm-signout"
+    onClick={() => signOut({ callbackUrl: "/" })}
+  >
+    Sign Out
+  </button>
+)}
             {session && (
               <span className={isCreator ? "rm-creator-badge" : "rm-viewer-badge"}>
                 {isCreator ? "🎛 Host" : "👀 Viewer"}
