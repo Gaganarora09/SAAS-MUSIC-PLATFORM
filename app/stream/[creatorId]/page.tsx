@@ -294,11 +294,7 @@ export default function StreamPage() {
         .rm-queue-empty{padding:48px 20px;text-align:center;}
         .rm-queue-empty-icon{font-size:2.5rem;margin-bottom:12px;opacity:0.3}
         .rm-queue-empty-text{font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);}
-        @media(max-width:900px){
-          .rm-body{grid-template-columns:1fr;padding:20px}
-          .rm-queue-card{position:static;max-height:500px}
-          .rm-nav{padding:0 20px}
-          //signout button class
+          /*signout button class*/
             .rm-signout {
           font-family:'Space Mono',monospace; font-size:0.65rem;
           letter-spacing:0.1em; text-transform:uppercase;
@@ -307,7 +303,13 @@ export default function StreamPage() {
           cursor:pointer; transition:all 0.2s;
         }
         .rm-signout:hover{border-color:var(--accent);color:var(--accent)}
-        }
+        
+        @media(max-width:900px){
+          .rm-body{grid-template-columns:1fr;padding:20px}
+          .rm-queue-card{position:static;max-height:500px}
+          .rm-nav{padding:0 20px}
+      }
+        
       `}</style>
 
       <div className="rm-root">
