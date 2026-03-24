@@ -28,10 +28,11 @@ interface QueueItem {
   addedBy: string;
   streamId: string;
 }
-//for mute and unmute
-const [isMuted, setIsMuted] = useState(true);
+
 
 export default function StreamPage() {
+  //for mute and unmute
+const [isMuted, setIsMuted] = useState(true);
   const { data: session } = useSession();
   const params = useParams();
   const creatorId = params.creatorId as string;
@@ -141,7 +142,7 @@ export default function StreamPage() {
           if(isMuted){
             event.target.mute();
           }else{
-            event.target.unmute();
+            event.target.unMute();
           }
         }
       }
