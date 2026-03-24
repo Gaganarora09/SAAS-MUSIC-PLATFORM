@@ -3,6 +3,7 @@
 import { useSession, signIn,signOut } from "next-auth/react";
 import { useParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 function extractYouTubeId(url: string): string | null {
   const patterns = [
@@ -52,6 +53,13 @@ const [isMuted, setIsMuted] = useState(true);
 
   // Check if logged-in user is the room creator
   const isCreator = (session?.user as any)?.id === creatorId;
+
+  const router = useRouter();
+useEffect(() => {
+  if (isCreator && session) {
+    router.push("/dashboard");
+  }
+}, [isCreator, session]);
 
   // Keep refs in sync with state
   useEffect(() => { queueRef.current = queue; }, [queue]);
