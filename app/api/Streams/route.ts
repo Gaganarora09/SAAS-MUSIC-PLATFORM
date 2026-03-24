@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
 
 
-// that precious was not extracting the link the youtube>si= it was only working for youtube?v=
+// that previous was not extracting the link with youtube?si= it was only working for youtube?v=
     const urlObj = new URL(data.url.startsWith("http") ? data.url : `https://${data.url}`);
 const extractedId = urlObj.searchParams.get("v") || data.url.split("youtu.be/")[1]?.split("?")[0];
 
