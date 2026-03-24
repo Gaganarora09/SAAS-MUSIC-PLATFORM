@@ -141,13 +141,14 @@ const [isMuted, setIsMuted] = useState(true);
         onReady:(event:any)=>{
           if(isMuted){
             event.target.mute();
-          }else{
+          }
+          else{
             event.target.unMute();
           }
         }
       }
     });
-  }, [nowPlaying, ytReady,isMuted]);
+  }, [nowPlaying, ytReady]);
 
   useEffect(() => {
     setUrlError("");
