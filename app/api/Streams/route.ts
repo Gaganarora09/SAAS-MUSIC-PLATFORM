@@ -18,7 +18,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Url Is Wrong" }, { status: 411 });
     }
 
-    const extractedId = data.url.split("?v=")[1]?.split("&")[0];
+    // const extractedId = data.url.split("?v=")[1]?.split("&")[0];
+
+
+
+// that precious was not extracting the link the youtube>si= it was only working for youtube?v=
+    const urlObj = new URL(data.url.startsWith("http") ? data.url : `https://${data.url}`);
+const extractedId = urlObj.searchParams.get("v") || data.url.split("youtu.be/")[1]?.split("?")[0];
+
+
+
+
     if (!extractedId) {
       return NextResponse.json({ message: "Invalid YouTube URL format" }, { status: 411 });
     }
