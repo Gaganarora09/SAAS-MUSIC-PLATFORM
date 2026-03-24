@@ -28,6 +28,8 @@ interface QueueItem {
   addedBy: string;
   streamId: string;
 }
+//for mute and unmute
+const [isMuted, setIsMuted] = useState(true);
 
 export default function StreamPage() {
   const { data: session } = useSession();
@@ -133,10 +135,18 @@ export default function StreamPage() {
         controls: 0,
         disablekb: 1,
         modestbranding: 1,
-        mute:1,
-      },
+        mute: isMuted? 1:0
+      },events:{
+        onReady:(event:any)=>{
+          if(isMuted){
+            event.target.mute();
+          }else{
+            event.target.unmute();
+          }
+        }
+      }
     });
-  }, [nowPlaying, ytReady]);
+  }, [nowPlaying, ytReady,isMuted]);
 
   useEffect(() => {
     setUrlError("");
@@ -360,17 +370,19 @@ export default function StreamPage() {
 
   {/* 🔊 Unmute / Mute button */}
                       {nowPlaying && (
-                          <button
+                                  <button
                     className="rm-play-next-btn"
                     onClick={() => {
-                      if (playerRef.current?.isMuted()) {
-                        playerRef.current.unMute();
+                      if (isMuted) {
+                        playerRef.current?.unMute();
+                        setIsMuted(false);
                       } else {
-                        playerRef.current.mute();
+                        playerRef.current?.mute();
+                        setIsMuted(true);
                       }
                     }}
                   >
-                    🔊 Sound
+                    {isMuted ? "🔊 Unmute" : "🔇 Mute"}
                   </button>
                 )}
 
