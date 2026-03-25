@@ -200,16 +200,22 @@ useEffect(() => {
     return data.id;
   }
 
-  async function upvote(streamId: string) {
+ async function upvote(streamId: string) {
+  try {
     const response = await fetch("/api/Streams/upvote", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ streamId }),
     });
+    if (!response.ok) {
+      console.error("Upvote failed:", response.status);
+    }
     const data = await response.json();
     return data.message;
+  } catch(e) {
+    console.error("Upvote error:", e);
   }
-
+}
   const handleVote = async (id: string, delta: 1 | -1) => {
     if (!session) { signIn(undefined, { callbackUrl: window.location.href }); return; }
     if (delta === 1) {
