@@ -370,6 +370,7 @@ const searchSongs = async (query: string) => {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html, body{overflow-x:hidden; max-width:100%;}
 
         :root {
           --bg:#080a0f; --surface:#0e1118; --surface2:#141720;
@@ -377,10 +378,11 @@ const searchSongs = async (query: string) => {
           --text:#f0f0f0; --muted:#6b7280; --border:rgba(255,255,255,0.07);
         }
 
-        .rm-root {
-          min-height:100vh; background:var(--bg); color:var(--text);
-          font-family:'DM Sans',sans-serif;
-        }
+      .rm-root {
+  min-height:100vh; background:var(--bg); color:var(--text);
+  font-family:'DM Sans',sans-serif;
+  overflow-x:hidden;
+}
         .rm-root::before {
           content:''; position:fixed; inset:0;
           background-image:

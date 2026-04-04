@@ -295,12 +295,17 @@ const searchSongs = async (query: string) => {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html, body{overflow-x:hidden; max-width:100%;}
         :root {
           --bg:#080a0f; --surface:#0e1118; --surface2:#141720;
           --accent:#ff3c5f; --accent2:#ff8c42; --green:#1db954;
           --text:#f0f0f0; --muted:#6b7280; --border:rgba(255,255,255,0.07);
         }
-        .rm-root{min-height:100vh;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;}
+        .rm-root {
+  min-height:100vh; background:var(--bg); color:var(--text);
+  font-family:'DM Sans',sans-serif;
+  overflow-x:hidden;
+}
         .rm-root::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,0.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.018) 1px,transparent 1px);background-size:52px 52px;pointer-events:none;}
         .rm-nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:64px;background:rgba(8,10,15,0.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);}
         .rm-logo{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;letter-spacing:0.1em;display:flex;align-items:center;gap:8px;}
