@@ -40,6 +40,9 @@ const [isMuted, setIsMuted] = useState(true);
 
   const [url, setUrl] = useState("");
   const [preview, setPreview] = useState<{ id: string; title: string } | null>(null);
+  //for youtube api two states
+  const [searchQuery, setSearchQuery] = useState("");
+const [results, setResults] = useState<any[]>([]);
   const [urlError, setUrlError] = useState("");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [nowPlaying, setNowPlaying] = useState<QueueItem | null>(null);
@@ -166,6 +169,23 @@ useEffect(() => {
     else if (url.length > 10) { setPreview(null); setUrlError("Doesn't look like a valid YouTube link"); }
   }, [url]);
 
+  //youtube api
+   useEffect(() => {
+  if (!searchQuery.trim()) {
+    setResults([]);
+    return;
+  }
+
+  const delay = setTimeout(() => {
+    searchSongs(searchQuery);
+  }, 300);
+
+  return () => clearTimeout(delay);
+}, [searchQuery]);
+
+
+
+
   const playNext = () => {
     if (queue.length === 0) return;
     const sorted = [...queue].sort((a, b) => b.votes - a.votes);
@@ -216,6 +236,38 @@ useEffect(() => {
     console.error("Upvote error:", e);
   }
 }
+
+//youtube api
+const searchSongs = async (query: string) => {
+  if (!query || query.trim().length < 2) {
+    setResults([]);
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/youtube/search?q=${query}`);
+
+    if (!res.ok) {
+      setResults([]);
+      return;
+    }
+
+    const data = await res.json();
+
+    if (!Array.isArray(data)) {
+      setResults([]);
+      return;
+    }
+
+    setResults(data);
+
+  } catch (err) {
+    console.error("Search failed:", err);
+    setResults([]);
+  }
+};
+
+
   const handleVote = async (id: string, delta: 1 | -1) => {
     if (!session) { signIn(undefined, { callbackUrl: window.location.href }); return; }
     if (delta === 1) {
@@ -278,12 +330,41 @@ useEffect(() => {
         .rm-embed-placeholder-text{font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);}
         .rm-input-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;}
         .rm-input-label{font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:block;}
-        .rm-input-row{display:flex;gap:10px;margin-bottom:0}
+        .rm-input-row {
+  display: flex;
+  gap: 10px;
+}
+        .rm-input-card input:first-of-type {
+  margin-bottom: 10px;
+}
         .rm-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.9rem;outline:none;transition:border-color 0.2s,box-shadow 0.2s;min-width:0;}
         .rm-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,60,95,0.1)}
         .rm-input::placeholder{color:var(--muted)}
         .rm-input.error{border-color:var(--accent)}
-        .rm-add-btn{font-family:'Space Mono',monospace;font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;background:var(--accent);color:white;border:none;padding:12px 22px;border-radius:8px;cursor:pointer;transition:all 0.2s;white-space:nowrap;flex-shrink:0;}
+        .rm-add-btn {
+  font-family:'Space Mono',monospace;
+  font-size:0.68rem;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+
+  background:var(--accent);
+  color:white;
+  border:none;
+
+  height: 42px;
+  min-width: 90px;
+  padding: 0 16px;
+
+  border-radius:8px;
+  cursor:pointer;
+  transition:all 0.2s;
+  white-space:nowrap;
+  flex-shrink:0;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
         .rm-add-btn:hover:not(:disabled){background:#ff1f45;box-shadow:0 4px 16px rgba(255,60,95,0.4);transform:translateY(-1px)}
         .rm-add-btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
         .rm-url-error{font-family:'Space Mono',monospace;font-size:0.62rem;color:var(--accent);margin-top:8px;letter-spacing:0.05em;}
@@ -303,6 +384,26 @@ useEffect(() => {
         .rm-queue-list::-webkit-scrollbar-track{background:transparent}
         .rm-queue-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
         .rm-queue-item{display:flex;gap:12px;align-items:center;padding:12px;border-radius:10px;margin-bottom:4px;transition:background 0.2s;}
+        .rm-search-item {
+  display: flex;
+  gap: 12px;
+  cursor: pointer;
+  margin-bottom: 14px;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.rm-search-item:hover {
+  background: var(--surface2);
+}
+
+.rm-search-item img {
+  width: 80px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 6px;
+}
         .rm-queue-item:hover{background:var(--surface2)}
         .rm-queue-rank{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:rgba(255,255,255,0.08);width:20px;text-align:center;flex-shrink:0;line-height:1;}
         .rm-queue-rank.top{color:rgba(255,60,95,0.4)}
@@ -331,11 +432,16 @@ useEffect(() => {
         }
         .rm-signout:hover{border-color:var(--accent);color:var(--accent)}
         
-        @media(max-width:900px){
-          .rm-body{grid-template-columns:1fr;padding:20px}
-          .rm-queue-card{position:static;max-height:500px}
-          .rm-nav{padding:0 20px}
-      }
+       @media(max-width:900px){
+  .rm-body{grid-template-columns:1fr;padding:16px}
+  .rm-queue-card{position:static;max-height:500px}
+  .rm-nav{padding:0 16px}
+  .rm-input-card{padding:16px}
+  .rm-player-header{flex-wrap:wrap;gap:8px}
+  .rm-input-row{flex-direction:column}
+  .rm-add-btn{width:100%}
+  .rm-input{width:100%}
+}
         
       `}</style>
 
@@ -448,6 +554,57 @@ useEffect(() => {
 
             <div className="rm-input-card">
               <span className="rm-input-label">Suggest a song</span>
+
+              {/* //youtube api  */}
+{/*<div className="rm-input-row">
+  <input
+    className="rm-input"
+    type="text"
+    placeholder="Search songs..."
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+    onKeyDown={(e) => {
+      if (e.key === "Enter" && searchQuery.trim()) {
+        searchSongs(searchQuery);
+      }
+    }}
+  />
+
+  <button
+    className="rm-add-btn"
+    onClick={() => searchSongs(searchQuery)}
+    disabled={!searchQuery.trim()}
+  >
+    Search
+  </button>
+</div>*/}
+
+{/* //youtube api */}
+{results.length > 0 && (
+  <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "12px" }}>
+    {results.map((video) => (
+      <div
+        key={video.videoId}
+        className="rm-search-item"
+        onClick={() => {
+          setPreview({
+            id: video.videoId,
+            title: video.title
+          });
+
+          setUrl(`https://www.youtube.com/watch?v=${video.videoId}`);
+          setResults([]);
+          setSearchQuery("");
+        }}
+      >
+        <img src={video.thumbnail} width={80} />
+        <p>{video.title}</p>
+      </div>
+    ))}
+  </div>
+)}
+
+
               <div className="rm-input-row">
                 <input
                   className={`rm-input ${urlError ? "error" : ""}`}

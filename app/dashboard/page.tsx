@@ -3,6 +3,10 @@
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
+//youtube api
+
+
+
 
 // ── helpers ──────────────────────────────────────────────
 function extractYouTubeId(url: string): string | null {
@@ -39,6 +43,9 @@ export default function Dashboard() {
 
 
   const [url, setUrl] = useState("");
+  //youtube api
+  const [searchQuery, setSearchQuery] = useState("");
+const [results, setResults] = useState<any[]>([]);
   const [preview, setPreview] = useState<{ id: string; title: string } | null>(null);
   const [urlError, setUrlError] = useState("");
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -163,6 +170,25 @@ useEffect(() => {
     }
   }, [url]);
 
+
+  //youtube api
+
+  useEffect(() => {
+  if (!searchQuery.trim()) {
+    setResults([]);
+    return;
+  }
+
+  const delay = setTimeout(() => {
+    searchSongs(searchQuery);
+  }, 300);
+
+  return () => clearTimeout(delay);
+}, [searchQuery]);
+
+
+
+
   // ── Play next top-voted song (uses ref for fresh queue data) ──
   // We need this version because it's called inside the YT onStateChange callback
   // where the queue state would be stale (closure problem)
@@ -247,6 +273,41 @@ useEffect(() => {
     const data = await response.json();
     return data.id;
   }
+  //youtube api
+
+const searchSongs = async (query: string) => {
+  if (!query || query.trim().length < 2) {
+    setResults([]);
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/youtube/search?q=${query}`);
+
+    if (!res.ok) {
+      setResults([]);
+      return;
+    }
+
+    const data = await res.json();
+
+    if (!Array.isArray(data)) {
+      setResults([]);
+      return;
+    }
+
+    if (query !== searchQuery) return;
+
+    setResults(data);
+
+  } catch (err) {
+    console.error("Search failed:", err);
+    setResults([]);
+  }
+};
+
+
+
 
   // ── Upvote in database ──
   async function upvote(streamId: string) {
@@ -435,25 +496,50 @@ useEffect(() => {
           letter-spacing:0.2em; text-transform:uppercase; color:var(--muted);
           margin-bottom:12px; display:block;
         }
-        .rm-input-row{display:flex;gap:10px;margin-bottom:0}
+        .rm-input-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px; 
+}
         .rm-input {
           flex:1; background:var(--surface2); border:1px solid var(--border);
           border-radius:8px; padding:12px 16px; color:var(--text);
           font-family:'DM Sans',sans-serif; font-size:0.9rem;
           outline:none; transition:border-color 0.2s,box-shadow 0.2s;
           min-width:0;
+          height: 42px;
         }
         .rm-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,60,95,0.1)}
         .rm-input::placeholder{color:var(--muted)}
         .rm-input.error{border-color:var(--accent)}
 
-        .rm-add-btn {
-          font-family:'Space Mono',monospace; font-size:0.68rem;
-          letter-spacing:0.1em; text-transform:uppercase;
-          background:var(--accent); color:white; border:none;
-          padding:12px 22px; border-radius:8px; cursor:pointer;
-          transition:all 0.2s; white-space:nowrap; flex-shrink:0;
-        }
+         .rm-add-btn {
+  font-family:'Space Mono',monospace;
+  font-size:0.68rem;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+
+  background:var(--accent);
+  color:white;
+  border:none;
+
+  height: 42px;           
+  min-width: 90px;      
+  padding: 0 16px;        
+
+  border-radius:8px;
+  cursor:pointer;
+  transition:all 0.2s;
+  white-space:nowrap;
+  flex-shrink:0;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+
+
         .rm-add-btn:hover:not(:disabled){background:#ff1f45;box-shadow:0 4px 16px rgba(255,60,95,0.4);transform:translateY(-1px)}
         .rm-add-btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
 
@@ -532,6 +618,27 @@ useEffect(() => {
         }
         .rm-queue-thumb img{width:100%;height:100%;object-fit:cover}
 
+        // youtube api
+        .rm-search-item {
+  display: flex;
+  gap: 12px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.rm-search-item:hover {
+  background: var(--surface2);
+}
+
+.rm-search-item img {
+  width: 80px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
         .rm-queue-meta{flex:1;min-width:0}
         .rm-queue-name{
           font-size:0.82rem;font-weight:500;
@@ -576,11 +683,16 @@ useEffect(() => {
         }
 
         @media(max-width:900px){
-          .rm-body{grid-template-columns:1fr;padding:20px}
-          .rm-queue-card{position:static;max-height:500px}
-          .rm-nav{padding:0 20px}
-          .rm-name{display:none}
-        }
+  .rm-body{grid-template-columns:1fr;padding:16px}
+  .rm-queue-card{position:static;max-height:500px}
+  .rm-nav{padding:0 16px}
+  .rm-name{display:none}
+  .rm-input-card{padding:16px}
+  .rm-player-header{flex-wrap:wrap;gap:8px}
+  .rm-input-row{flex-direction:column}
+  .rm-add-btn{width:100%}
+  .rm-input{width:100%}
+}
       `}</style>
 
       <div className="rm-root">
@@ -654,6 +766,53 @@ useEffect(() => {
             {/* ── Add Song ── */}
             <div className="rm-input-card">
               <span className="rm-input-label">Add a song to the queue</span>
+              {/* //youtube api */}
+              
+       { /*      <div className="rm-input-row">
+  <input
+    className="rm-input"
+    type="text"
+    placeholder="Search songs..."
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+  />
+
+  <button
+    className="rm-add-btn"
+    onClick={() => searchSongs(searchQuery)}
+    disabled={!searchQuery.trim()}
+  >
+    Search
+  </button>
+</div>*/}
+
+{results.length > 0 && (
+  <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "12px" }}>
+    {results.map((video) => (
+      <div
+        key={video.videoId}
+        className="rm-search-item"
+        onClick={() => {
+          setPreview({
+            id: video.videoId,
+            title: video.title
+          });
+
+          setUrl(`https://www.youtube.com/watch?v=${video.videoId}`);
+          setResults([]);
+          setSearchQuery("");
+        }}
+      >
+        <img src={video.thumbnail} />
+        <p>{video.title}</p>
+      </div>
+    ))}
+  </div>
+)}
+
+
+
+
               <div className="rm-input-row">
                 <input
                   className={`rm-input ${urlError ? "error" : ""}`}
@@ -699,7 +858,7 @@ useEffect(() => {
                 <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"0.62rem", letterSpacing:"0.2em", textTransform:"uppercase" as const, color:"var(--muted)", marginBottom:"6px", display:"block" }}>
                   🔗 Share this room
                 </span>
-                <div style={{ fontSize:"0.78rem", color:"var(--muted)", fontFamily:"'Space Mono',monospace", whiteSpace:"nowrap" as const, overflow:"hidden", textOverflow:"ellipsis" }}>
+                <div style={{ fontSize:"0.78rem", color:"var(--muted)", fontFamily:"'Space Mono',monospace", whiteSpace:"normal" as const, overflow:"hidden", textOverflow:"ellipsis" }}>
                   {typeof window !== "undefined"
                     ? `${window.location.origin}/stream/${(session?.user as any)?.id}`
                     : "loading..."}
@@ -712,7 +871,7 @@ useEffect(() => {
                     alert("Link Copied!");
                   }
                 }}
-                style={{ fontFamily:"'Space Mono',monospace", fontSize:"0.62rem", letterSpacing:"0.1em", textTransform:"uppercase" as const, background:"none", border:"1px solid var(--border)", color:"var(--muted)", padding:"8px 14px", borderRadius:"6px", cursor:"pointer", whiteSpace:"nowrap" as const, flexShrink:0 }}
+                style={{ fontFamily:"'Space Mono',monospace", fontSize:"0.62rem", letterSpacing:"0.1em", textTransform:"uppercase" as const, background:"none", border:"1px solid var(--border)", color:"var(--muted)", padding:"8px 14px", borderRadius:"6px", cursor:"pointer", whiteSpace:"normal" as const, flexShrink:0 }}
               >
                 Copy Link
               </button>
